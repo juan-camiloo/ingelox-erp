@@ -16,7 +16,9 @@ import {
   AlertTriangle,
   Loader2,
   MessageSquare,
-  FileCheck
+  FileCheck,
+  Mail,
+  Copy
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type {
@@ -43,6 +45,7 @@ import {
   isEtaOverdue,
   calculateFreeDaysRemaining
 } from '../lib/dateUtils';
+import { generateOperationalUpdateEmail } from '../lib/emailTemplates';
 import { useAuth } from '../context/AuthContext';
 
 export const ShipmentDetailPage: React.FC = () => {
@@ -77,6 +80,26 @@ export const ShipmentDetailPage: React.FC = () => {
   // Assignment modal state
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedCompanyToAssign, setSelectedCompanyToAssign] = useState('');
+
+  // Email report modal
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [copiedStatus, setCopiedStatus] = useState<string | null>(null);
+
+  const handleCopyHtmlReport = () => {
+    if (!shipment) return;
+    const latestUpdate = updates[0] || { status: shipment.current_status || 'activo', description: 'Operación activa en curso' };
+    const html = generateOperationalUpdateEmail(shipment, latestUpdate, { recipientName: shipment.consignee || 'Cliente' });
+    navigator.clipboard.writeText(html);
+    setCopiedStatus('html');
+    setTimeout(() => setCopiedStatus(null), 3000);
+  };
+
+  const handleOpenMailClient = () => {
+    if (!shipment) return;
+    const subject = encodeURIComponent(`[INGELOX OPERACIONES] Reporte de Tráfico DO #${shipment.do_number} - ${shipment.consignee || ''}`);
+    const body = encodeURIComponent(`Estimado cliente,\n\nSe adjunta el reporte oficial de estado para el expediente DO #${shipment.do_number}.\n\nOrigen: ${shipment.origin}\nDestino: ${shipment.destination}\nLínea/Naviera: ${shipment.carrier || '--'}\nEstado actual: ${getShipmentStatusLabel(shipment.current_status)}\nETA: ${formatDateDisplay(shipment.eta)}\n\nSaludos cordiales,\nIngelox Logistics SAS\nCentro Operativo de Tráfico`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  };
 
   const loadShipmentData = async () => {
     if (!id) return;
@@ -480,6 +503,14 @@ export const ShipmentDetailPage: React.FC = () => {
               >
                 <Plus className="w-3.5 h-3.5 text-brand-orange" />
                 <span>Novedad</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowReportModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5 text-sky-400" />
+                <span>Emitir Reporte</span>
               </button>
               <button
                 type="button"
@@ -1126,6 +1157,81 @@ export const ShipmentDetailPage: React.FC = () => {
                   className="px-4 py-2 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-orange/20"
                 >
                   Vincular
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INSTITUTIONAL EMAIL REPORT PREVIEW */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-brand-orange/20 text-brand-orange flex items-center justify-center font-bold">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Reporte Operativo Institucional</h3>
+                  <p className="text-xs text-slate-400">
+                    Plantilla oficial Ingelox ERP • DO #{shipment.do_number}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Preview Box */}
+            <div className="flex-1 p-5 overflow-y-auto bg-slate-950 custom-scrollbar">
+              <div className="border border-slate-800 rounded-xl overflow-hidden shadow-inner">
+                <iframe
+                  title="Vista Previa de Correo"
+                  srcDoc={generateOperationalUpdateEmail(
+                    shipment,
+                    updates[0] || { status: shipment.current_status || 'activo', description: 'Operación en tránsito y seguimiento' },
+                    { recipientName: shipment.consignee || 'Cliente' }
+                  )}
+                  className="w-full h-[380px] bg-white border-0"
+                />
+              </div>
+            </div>
+
+            {/* Actions Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                {copiedStatus === 'html' ? (
+                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> ¡Código HTML copiado al portapapeles!
+                  </span>
+                ) : (
+                  <span>Diseño exclusivo para operaciones corporativas.</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyHtmlReport}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copiar HTML</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenMailClient}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand-orange hover:bg-orange-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-orange/20 transition-all cursor-pointer"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Abrir en Correo</span>
                 </button>
               </div>
             </div>

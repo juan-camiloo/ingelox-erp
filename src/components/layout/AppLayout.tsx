@@ -74,7 +74,7 @@ export const AppLayout: React.FC = () => {
               <span className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
                 INGELOX <span className="text-xs px-1.5 py-0.5 rounded bg-brand-orange/20 text-brand-orange border border-brand-orange/30 font-semibold">ERP</span>
               </span>
-              <span className="text-[11px] text-slate-400 font-medium truncate">Centro de Trabajo</span>
+              <span className="text-[11px] text-slate-400 font-medium truncate">Torre de Control Operativo</span>
             </div>
           )}
         </div>
@@ -112,14 +112,14 @@ export const AppLayout: React.FC = () => {
         {/* Portal de Clientes External Link */}
         <div className="px-3 pb-3">
           <a
-            href="https://como-va-mi-carga.netlify.app"
+            href="https://como-va-mi-carga.ingelox.com.co"
             target="_blank"
             rel="noopener noreferrer"
-            title="Ir al Portal de Clientes"
+            title="Ir al Portal de Clientes (Cómo va mi carga)"
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800 transition-colors"
           >
             <ExternalLink className="w-4 h-4 shrink-0 text-slate-400" />
-            {!collapsed && <span className="truncate">Portal de Clientes</span>}
+            {!collapsed && <span className="truncate">Portal Clientes (Cómo va mi carga)</span>}
           </a>
         </div>
 
