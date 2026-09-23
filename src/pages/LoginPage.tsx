@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   PackageCheck,
@@ -15,18 +15,70 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
+const LOGIN_DRAFT_KEY = 'ingelox_login_draft';
+
+interface LoginDraft {
+  email: string;
+  step: 'email' | 'code';
+  authMethod: 'otp' | 'password';
+  infoMessage?: string | null;
+}
+
+function getStoredLoginDraft(): LoginDraft | null {
+  try {
+    const raw = sessionStorage.getItem(LOGIN_DRAFT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export const LoginPage: React.FC = () => {
-  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('otp');
-  const [email, setEmail] = useState('');
+  const storedDraft = getStoredLoginDraft();
+  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>(storedDraft?.authMethod || 'otp');
+  const [email, setEmail] = useState(storedDraft?.email || '');
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [step, setStep] = useState<'email' | 'code'>(storedDraft?.step || 'email');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(storedDraft?.infoMessage || null);
 
   const { accessDeniedError, clearAccessDenied } = useAuth();
   const navigate = useNavigate();
+
+  // Persistir el borrador para que al cambiar de pestaña no se reinicie
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        LOGIN_DRAFT_KEY,
+        JSON.stringify({
+          email,
+          step,
+          authMethod,
+          infoMessage: step === 'code' ? infoMessage : null,
+        })
+      );
+    } catch {
+      // Ignorar fallos de cuota o cookies bloqueadas
+    }
+  }, [email, step, authMethod, infoMessage]);
+
+  const handleChangeEmail = () => {
+    setStep('email');
+    setOtpCode('');
+    setErrorMessage(null);
+    setInfoMessage(null);
+    try {
+      sessionStorage.setItem(
+        LOGIN_DRAFT_KEY,
+        JSON.stringify({ email, step: 'email', authMethod })
+      );
+    } catch {
+      // Ignorar
+    }
+  };
 
   // 1. Enviar código OTP al correo
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -92,6 +144,9 @@ export const LoginPage: React.FC = () => {
       }
 
       if (data?.session) {
+        try {
+          sessionStorage.removeItem(LOGIN_DRAFT_KEY);
+        } catch {}
         navigate('/operations');
       }
     } catch (err: any) {
@@ -126,6 +181,9 @@ export const LoginPage: React.FC = () => {
       }
 
       if (data?.user) {
+        try {
+          sessionStorage.removeItem(LOGIN_DRAFT_KEY);
+        } catch {}
         navigate('/operations');
       }
     } catch (err: any) {
@@ -276,7 +334,7 @@ export const LoginPage: React.FC = () => {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setStep('email')}
+                    onClick={handleChangeEmail}
                     className="text-[11px] text-brand-orange hover:underline"
                   >
                     Cambiar correo

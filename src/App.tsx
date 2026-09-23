@@ -32,16 +32,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, isInternal, loading } = useAuth();
 
-  if (loading) {
+  if (session && isInternal) {
+    return <Navigate to="/operations" replace />;
+  }
+
+  // Solo mostrar loader en la carga inicial cuando no hay sesión definida
+  if (loading && session === null) {
     return (
       <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center gap-3 text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin text-brand-orange" />
       </div>
     );
-  }
-
-  if (session && isInternal) {
-    return <Navigate to="/operations" replace />;
   }
 
   return <>{children}</>;

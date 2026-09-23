@@ -43,8 +43,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const handleUserSession = async (currentSession: Session | null) => {
-    setLoading(true);
+  const handleUserSession = async (currentSession: Session | null, isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    }
     setAccessDeniedError(null);
 
     if (!currentSession?.user) {
@@ -96,11 +98,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      handleUserSession(session);
+      handleUserSession(session, true);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleUserSession(session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        handleUserSession(session, false);
+      }
     });
 
     return () => {
