@@ -45,8 +45,25 @@ export const LoginPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(storedDraft?.infoMessage || null);
 
-  const { accessDeniedError, clearAccessDenied } = useAuth();
+  const { accessDeniedError, clearAccessDenied, session, isInternal } = useAuth();
   const navigate = useNavigate();
+
+  // Redirigir a operaciones y limpiar borrador solo cuando la sesión y el perfil interno estén confirmados
+  useEffect(() => {
+    if (session && isInternal) {
+      try {
+        sessionStorage.removeItem(LOGIN_DRAFT_KEY);
+      } catch {}
+      navigate('/operations', { replace: true });
+    }
+  }, [session, isInternal, navigate]);
+
+  // Si llega un error de acceso denegado desde AuthContext, desactivar loader del botón
+  useEffect(() => {
+    if (accessDeniedError) {
+      setLoading(false);
+    }
+  }, [accessDeniedError]);
 
   // Persistir el borrador para que al cambiar de pestaña no se reinicie
   useEffect(() => {
@@ -122,6 +139,7 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
     setInfoMessage(null);
+    clearAccessDenied();
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanToken = otpCode.trim();
@@ -133,7 +151,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.verifyOtp({
+      const { error } = await supabase.auth.verifyOtp({
         email: cleanEmail,
         token: cleanToken,
         type: 'email',
@@ -143,16 +161,12 @@ export const LoginPage: React.FC = () => {
         throw new Error('Código inválido o expirado. Verifica el código e intenta nuevamente.');
       }
 
-      if (data?.session) {
-        try {
-          sessionStorage.removeItem(LOGIN_DRAFT_KEY);
-        } catch {}
-        navigate('/operations');
-      }
+      // Si verifyOtp fue exitoso, AuthContext procesa la sesión mediante onAuthStateChange.
+      // Cuando session && isInternal sea true, el useEffect redirigirá a /operations y limpiará el borrador.
+      // Si la cuenta es rechazada, AuthContext activará accessDeniedError.
     } catch (err: any) {
       console.error('Error verificando OTP:', err);
       setErrorMessage(err.message || 'Error al validar código de verificación.');
-    } finally {
       setLoading(false);
     }
   };
@@ -171,7 +185,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
       });
@@ -179,13 +193,7 @@ export const LoginPage: React.FC = () => {
       if (error) {
         throw error;
       }
-
-      if (data?.user) {
-        try {
-          sessionStorage.removeItem(LOGIN_DRAFT_KEY);
-        } catch {}
-        navigate('/operations');
-      }
+      // Al resolverse el perfil en AuthContext, el useEffect redirigirá si es interno.
     } catch (err: any) {
       console.error('Error signing in with password:', err);
       let msg = err.message || 'Error al iniciar sesión';
@@ -193,7 +201,6 @@ export const LoginPage: React.FC = () => {
         msg = 'Credenciales inválidas. Verifica tu correo y contraseña, o ingresa con código al correo.';
       }
       setErrorMessage(msg);
-    } finally {
       setLoading(false);
     }
   };

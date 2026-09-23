@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, email, nickname, is_internal, company_id, status, role, created_at')
+        .select('id, email, nickname, is_internal, company_id, status, created_at')
         .eq('id', userId)
         .single();
 
@@ -44,7 +44,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleUserSession = async (currentSession: Session | null, isInitial = false) => {
-    if (isInitial) {
+    // Activar loader solo en carga inicial o cuando llega una sesión activa a validar
+    if (isInitial || currentSession) {
       setLoading(true);
     }
     setAccessDeniedError(null);
@@ -61,10 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const currentProfile = await fetchProfile(currentUser.id);
 
     if (!currentProfile) {
-      // Si no tiene perfil aún
-      setSession(currentSession);
-      setUser(currentUser);
+      console.error('Perfil no encontrado para usuario:', currentUser.id);
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
       setProfile(null);
+      setAccessDeniedError('No se encontró el perfil de colaborador asociado a esta cuenta.');
       setLoading(false);
       return;
     }
@@ -93,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(currentSession);
     setUser(currentUser);
     setProfile(currentProfile);
+    setAccessDeniedError(null);
     setLoading(false);
   };
 

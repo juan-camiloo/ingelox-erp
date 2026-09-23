@@ -41,10 +41,13 @@ export interface ShipmentUpdate {
   id: string;
   shipment_id: string;
   status: string;
-  description: string;
+  observation?: string | null;
+  description?: string | null;
   location?: string | null;
   created_at: string;
+  updated_by?: string | null;
   created_by?: string | null;
+  event_type?: string | null;
   media_url?: string | null;
   created_by_name?: string | null;
 }
@@ -67,7 +70,6 @@ export interface UserProfile {
   is_internal: boolean;
   company_id?: string | null;
   status?: 'active' | 'inactive';
-  role?: string | null;
   created_at?: string;
   company?: {
     id: string;

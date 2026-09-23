@@ -132,9 +132,10 @@ export const OperationsPage: React.FC = () => {
           .insert({
             shipment_id: quickUpdateShipment.id,
             status: newStatus || quickUpdateShipment.current_status || 'actualizacion',
-            description: newObservation.trim() || `Estado actualizado a ${getShipmentStatusLabel(newStatus)}`,
+            observation: newObservation.trim() || `Estado actualizado a ${getShipmentStatusLabel(newStatus)}`,
             location: newLocation.trim() || null,
-            created_by: profile?.id,
+            updated_by: profile?.id,
+            event_type: 'status_update',
             created_at: nowIso,
           });
 

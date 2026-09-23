@@ -11,9 +11,9 @@ import { UsersPage } from './pages/UsersPage';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { session, isInternal, loading } = useAuth();
+  const { session, isInternal, loading, profile, accessDeniedError } = useAuth();
 
-  if (loading) {
+  if (loading || (session && profile === null && !accessDeniedError)) {
     return (
       <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center gap-3 text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin text-brand-orange" />
@@ -30,14 +30,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 };
 
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { session, isInternal, loading } = useAuth();
+  const { session, isInternal, loading, profile } = useAuth();
 
   if (session && isInternal) {
     return <Navigate to="/operations" replace />;
   }
 
-  // Solo mostrar loader en la carga inicial cuando no hay sesión definida
-  if (loading && session === null) {
+  // Mostrar loader durante la carga inicial o mientras se resuelve el perfil de una sesión entrante
+  if (loading && (session === null || profile === null)) {
     return (
       <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center gap-3 text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin text-brand-orange" />

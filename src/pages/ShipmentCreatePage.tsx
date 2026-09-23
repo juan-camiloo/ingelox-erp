@@ -127,8 +127,9 @@ export const ShipmentCreatePage: React.FC = () => {
         await supabase.from('shipment_updates').insert({
           shipment_id: createdShipment.id,
           status: newShipmentPayload.current_status,
-          description: initialObservation.trim(),
-          created_by: profile?.id,
+          observation: initialObservation.trim(),
+          updated_by: profile?.id,
+          event_type: 'status_update',
           created_at: nowIso,
         });
       }

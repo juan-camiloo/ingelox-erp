@@ -97,10 +97,6 @@ export const ClientsPage: React.FC = () => {
     try {
       const { error } = await supabase.from('companies').insert({
         name: newName.trim(),
-        nit: newNit.trim() || null,
-        email: newEmail.trim() || null,
-        phone: newPhone.trim() || null,
-        address: newAddress.trim() || null,
       });
 
       if (error) throw error;

@@ -235,8 +235,9 @@ export const ShipmentDetailPage: React.FC = () => {
         await supabase.from('shipment_updates').insert({
           shipment_id: id,
           status: formData.current_status,
-          description: `Estado actualizado a ${getShipmentStatusLabel(formData.current_status)}`,
-          created_by: profile?.id,
+          observation: `Estado actualizado a ${getShipmentStatusLabel(formData.current_status)}`,
+          updated_by: profile?.id,
+          event_type: 'status_update',
           created_at: nowIso,
         });
       }
@@ -266,9 +267,10 @@ export const ShipmentDetailPage: React.FC = () => {
         .insert({
           shipment_id: id,
           status: statusToUse,
-          description: newUpdateDesc.trim(),
+          observation: newUpdateDesc.trim(),
           location: newUpdateLocation.trim() || null,
-          created_by: profile?.id,
+          updated_by: profile?.id,
+          event_type: 'status_update',
           created_at: nowIso,
         });
 
@@ -1015,7 +1017,7 @@ export const ShipmentDetailPage: React.FC = () => {
                         </span>
                         <span>{formatDateTimeDisplay(upd.created_at)}</span>
                       </div>
-                      <p className="text-slate-200 text-xs leading-relaxed">{upd.description}</p>
+                      <p className="text-slate-200 text-xs leading-relaxed">{upd.observation || upd.description || '--'}</p>
                       {upd.location && (
                         <div className="text-[10px] text-slate-400 italic">
                           📍 {upd.location}
