@@ -8,6 +8,12 @@ import { ShipmentCreatePage } from './pages/ShipmentCreatePage';
 import { ShipmentDetailPage } from './pages/ShipmentDetailPage';
 import { ClientsPage } from './pages/ClientsPage';
 import { UsersPage } from './pages/UsersPage';
+import { QuotationsPage } from './pages/QuotationsPage';
+import { QuotationCreatePage } from './pages/QuotationCreatePage';
+import { InstructionsPage } from './pages/InstructionsPage';
+import { InstructionCreatePage } from './pages/InstructionCreatePage';
+import { ThirdPartiesPage } from './pages/ThirdPartiesPage';
+import { BillingConceptsPage } from './pages/BillingConceptsPage';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -76,6 +82,12 @@ export function App() {
             <Route path="operations" element={<OperationsPage />} />
             <Route path="shipments/new" element={<ShipmentCreatePage />} />
             <Route path="shipments/:id" element={<ShipmentDetailPage />} />
+            <Route path="quotations" element={<QuotationsPage />} />
+            <Route path="quotations/new" element={<QuotationCreatePage />} />
+            <Route path="instructions" element={<InstructionsPage />} />
+            <Route path="instructions/new" element={<InstructionCreatePage />} />
+            <Route path="third-parties" element={<ThirdPartiesPage />} />
+            <Route path="billing-concepts" element={<BillingConceptsPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="users" element={<UsersPage />} />
           </Route>

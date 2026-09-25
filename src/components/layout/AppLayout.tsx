@@ -11,7 +11,10 @@ import {
   Shield,
   Search,
   ExternalLink,
-  PackageCheck
+  PackageCheck,
+  FileText,
+  FileSpreadsheet,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -37,22 +40,40 @@ export const AppLayout: React.FC = () => {
       icon: Compass,
     },
     {
-      to: '/shipments/new',
-      label: 'Nueva Operación',
-      subtitle: 'Registro ágil de DO',
-      icon: PlusCircle,
+      to: '/quotations',
+      label: 'Cotizaciones',
+      subtitle: 'Propuestas Practiko',
+      icon: FileText,
+    },
+    {
+      to: '/instructions',
+      label: 'Instrucciones',
+      subtitle: 'Embarque & Excel Oficial',
+      icon: FileSpreadsheet,
+    },
+    {
+      to: '/third-parties',
+      label: 'Terceros (Practiko)',
+      subtitle: 'Clientes & Proveedores',
+      icon: Users,
+    },
+    {
+      to: '/billing-concepts',
+      label: 'Conceptos Facturación',
+      subtitle: 'Catálogo de Servicios',
+      icon: Receipt,
     },
     {
       to: '/clients',
-      label: 'Empresas y Clientes',
+      label: 'Empresas Vinculadas',
       subtitle: 'Directorio y asignaciones',
       icon: Building2,
     },
     {
       to: '/users',
       label: 'Equipo Interno',
-      subtitle: 'Operadores y roles',
-      icon: Users,
+      subtitle: 'Operadores y permisos',
+      icon: Shield,
     },
   ];
 
