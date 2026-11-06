@@ -1,5 +1,5 @@
-// Tipos oficiales para el módulo Practiko Carga e Instrucciones de Embarque
-// Basado en el estándar de Practiko y la operación de INGELOX Logistics SAS
+// Tipos oficiales para el módulo comercial e instrucciones de embarque
+// Operación de INGELOX Logistics SAS
 
 export type TipoPersona = 'juridica' | 'natural';
 export type TipoId = 'NIT' | 'CC' | 'CE' | 'PA' | 'TI';
@@ -21,8 +21,10 @@ export interface ThirdParty {
   telefono: string;
   pais: string;
   ciudad: string;
-  correo_fe: string; // Correo Facturación Electrónica DIAN
+  correo_fe: string; // Correo Facturación Electrónica
   nombre_sucursal: string; // 'PRINCIPAL'
+  contact_name?: string | null; // Contact person name
+  nombre_contacto?: string | null; // Compatibility alias
   // Datos comerciales
   vendedor?: string | null;
   dias_credito: number;

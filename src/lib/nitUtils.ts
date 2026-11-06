@@ -1,24 +1,24 @@
 /**
- * src/lib/dian.ts
- * Utilidades para cálculo de Dígito de Verificación (DV) de la DIAN (Colombia)
- * Algoritmo oficial Módulo 11 (Artículo 555-2 del Estatuto Tributario).
+ * src/lib/nitUtils.ts
+ * Utilidades para cálculo de Dígito de Verificación (DV) y formato de NIT / Identificación.
+ * Algoritmo Módulo 11 para identificación tributaria colombiana.
  */
 
-const DIAN_WEIGHTS = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
+const NIT_WEIGHTS = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
 
 /**
- * Calcula el dígito de verificación oficial para un NIT o Cédula en Colombia.
+ * Calcula el dígito de verificación para un NIT o número de identificación.
  * @param nit Número de identificación sin puntos, guiones ni DV previo.
  * @returns Dígito de verificación como string ('0' - '9') o '' si el valor es inválido.
  */
-export function calculateDianDv(nit: string | number): string {
+export function calculateNitDv(nit: string | number): string {
   const clean = String(nit).replace(/\D/g, '');
   if (!clean) return '';
 
   let sum = 0;
   for (let i = 0; i < clean.length; i++) {
     const digit = parseInt(clean[clean.length - 1 - i], 10);
-    const weight = DIAN_WEIGHTS[i] || 0;
+    const weight = NIT_WEIGHTS[i] || 0;
     sum += digit * weight;
   }
 
@@ -33,11 +33,11 @@ export function calculateDianDv(nit: string | number): string {
  * Formatea un NIT con separadores de miles y dígito de verificación opcional.
  * Ejemplo: 900528917 -> "900.528.917-1"
  */
-export function formatColombianNit(nit: string | number, dv?: string | null): string {
+export function formatNit(nit: string | number, dv?: string | null): string {
   const clean = String(nit).replace(/\D/g, '');
   if (!clean) return '';
 
   const formatted = clean.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const finalDv = dv !== undefined && dv !== null && dv !== '' ? dv : calculateDianDv(clean);
+  const finalDv = dv !== undefined && dv !== null && dv !== '' ? dv : calculateNitDv(clean);
   return finalDv ? `${formatted}-${finalDv}` : formatted;
 }

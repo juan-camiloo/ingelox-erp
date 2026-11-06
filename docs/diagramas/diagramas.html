@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentación Técnica & Diagramas de Arquitectura — INGELOX LOGISTICS ERP</title>
+  <meta name="description" content="Documentación de arquitectura técnica, diagramas UML editables, Modelo Entidad-Relación en 3FN y especificación de datos para Ingelox Logistics ERP & Tracking Portal.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Mermaid.js v10 -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        darkMode: true,
+        background: '#0b0f19',
+        primaryColor: '#1e293b',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#f97316',
+        lineColor: '#64748b',
+        secondaryColor: '#0f172a',
+        tertiaryColor: '#1e293b',
+        mainBkg: '#0f172a',
+        nodeBorder: '#f97316',
+        clusterBkg: '#0f172a',
+        clusterBorder: '#334155',
+        titleColor: '#f97316',
+        edgeLabelBackground: '#0b0f19',
+        actorBkg: '#0f172a',
+        actorBorder: '#f97316',
+        actorTextColor: '#f8fafc',
+        actorLineColor: '#64748b',
+        signalColor: '#f97316',
+        signalTextColor: '#f8fafc',
+        labelBoxBkgColor: '#1e293b',
+        labelBoxBorderColor: '#f97316',
+        labelTextColor: '#f8fafc',
+        loopTextColor: '#f8fafc',
+        noteBorderColor: '#f59e0b',
+        noteBkgColor: '#1e293b',
+        noteTextColor: '#f59e0b',
+        classText: '#f8fafc',
+        fontFamily: "'Plus Jakarta Sans', sans-serif"
+      },
+      flowchart: { curve: 'basis', useMaxWidth: true },
+      sequence: { useMaxWidth: true, mirrorActors: false },
+      classDiagram: { useMaxWidth: true }
+    });
+  </script>
+  <style>
+    :root {
+      --bg-base: #0b0f19;
+      --bg-surface: #0f172a;
+      --bg-card: #131c2e;
+      --border-color: #1e293b;
+      --border-bright: #334155;
+      --brand-orange: #f97316;
+      --brand-orange-hover: #ea580c;
+      --brand-orange-subtle: rgba(249, 115, 22, 0.12);
+      --accent-blue: #0284c7;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Marquee Header ─────────────────────────────────────── */
+    .marquee-bar {
+      background: #050811;
+      border-bottom: 1px solid var(--border-color);
+      overflow: hidden;
+      padding: 0.5rem 0;
+      white-space: nowrap;
+    }
+    .marquee-inner {
+      display: inline-flex;
+      animation: marquee 35s linear infinite;
+    }
+    .marquee-inner span {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding-right: 4rem;
+    }
+    .marquee-inner span em {
+      color: var(--brand-orange);
+      font-style: normal;
+      font-weight: 700;
+    }
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    /* ── Navbar ────────────────────────────────────────────── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.85rem 4%;
+      background: rgba(11, 15, 25, 0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .brand {
+      display: flex; align-items: center; gap: 0.6rem;
+      font-size: 1.15rem; font-weight: 800;
+      color: var(--text-main); text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .brand-tag {
+      background: var(--brand-orange);
+      color: #fff;
+      font-size: 0.65rem; font-weight: 700;
+      padding: 0.2rem 0.5rem; border-radius: var(--radius-sm);
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .nav-links {
+      display: flex; gap: 1.25rem; list-style: none;
+    }
+    .nav-links a {
+      font-size: 0.78rem; font-weight: 600;
+      color: var(--text-muted); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover {
+      color: var(--brand-orange);
+    }
+    .btn-portal {
+      font-size: 0.75rem; font-weight: 600;
+      padding: 0.45rem 0.9rem;
+      background: var(--brand-orange-subtle);
+      border: 1px solid rgba(249, 115, 22, 0.3);
+      color: var(--brand-orange);
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-portal:hover {
+      background: var(--brand-orange);
+      color: #fff;
+    }
+
+    /* ── Layout Container ──────────────────────────────────── */
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 2rem 4%;
+    }
+
+    /* ── Header Banner ─────────────────────────────────────── */
+    .hero-banner {
+      background: linear-gradient(135deg, var(--bg-surface) 0%, #0d1527 100%);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      padding: 2.75rem;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+      box-shadow: var(--shadow-card);
+    }
+    .hero-banner::after {
+      content: '';
+      position: absolute; right: -5%; top: -20%;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem; font-weight: 700;
+      color: var(--brand-orange);
+      text-transform: uppercase; letter-spacing: 0.12em;
+      margin-bottom: 0.75rem;
+    }
+    .hero-banner h1 {
+      font-size: 2.25rem; font-weight: 800;
+      letter-spacing: -0.03em; margin-bottom: 0.85rem;
+      color: #fff; line-height: 1.2;
+    }
+    .hero-banner p {
+      font-size: 0.95rem; color: var(--text-muted);
+      max-width: 860px; line-height: 1.7;
+    }
+    .badge-bar {
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+    .badge {
+      font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+      padding: 0.3rem 0.7rem; border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+    .badge-highlight {
+      border-color: rgba(249, 115, 22, 0.4);
+      background: var(--brand-orange-subtle);
+      color: var(--brand-orange);
+    }
+
+    /* ── Diagram Card ──────────────────────────────────────── */
+    .diagram-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 2.25rem;
+      margin-bottom: 2.5rem;
+      box-shadow: var(--shadow-card);
+      position: relative;
+    }
+    .diagram-card-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;
+    }
+    .diagram-pill {
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+      background: rgba(249, 115, 22, 0.15); color: var(--brand-orange);
+      padding: 0.25rem 0.65rem; border-radius: var(--radius-sm);
+      display: inline-block; margin-bottom: 0.4rem;
+    }
+    .diagram-card h2 {
+      font-size: 1.5rem; font-weight: 700;
+      color: #fff; letter-spacing: -0.02em;
+    }
+    .diagram-card p.desc {
+      font-size: 0.9rem; color: var(--text-muted);
+      margin-top: 0.35rem; max-width: 900px;
+    }
+    .mermaid-viewport {
+      background: #070a13;
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      padding: 2rem 1.5rem;
+      display: flex; justify-content: center;
+      overflow-x: auto;
+      margin: 1.25rem 0;
+    }
+
+    /* ── Code Snippet Box (Editable source) ────────────────── */
+    .source-panel {
+      background: #090d17;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-top: 1.25rem;
+    }
+    .source-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.65rem 1rem;
+      background: #050811;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .source-title {
+      font-family: var(--font-mono); font-size: 0.72rem;
+      color: var(--text-dim); text-transform: uppercase;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .copy-btn {
+      background: rgba(249, 115, 22, 0.15);
+      border: 1px solid rgba(249, 115, 22, 0.35);
+      color: var(--brand-orange);
+      font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600;
+      padding: 0.3rem 0.75rem; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: var(--brand-orange); color: #fff;
+    }
+    .source-code {
+      padding: 1rem; max-height: 280px; overflow-y: auto;
+      font-family: var(--font-mono); font-size: 0.76rem;
+      color: #cbd5e1; line-height: 1.5; white-space: pre;
+    }
+
+    /* ── Tables ────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto; border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); margin-top: 1rem;
+    }
+    table {
+      width: 100%; border-collapse: collapse; text-align: left;
+      font-size: 0.82rem;
+    }
+    th {
+      background: #0c1220; color: var(--text-muted);
+      font-weight: 600; padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-bright);
+      font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase;
+    }
+    td {
+      padding: 0.8rem 1rem; border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+    .status-badge {
+      display: inline-block; padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-sm); font-size: 0.72rem; font-weight: 700;
+    }
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .badge-orange { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+    .badge-blue { background: rgba(2, 132, 199, 0.15); color: #38bdf8; }
+    .badge-red { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+    /* ── Toast Notification ────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 2rem; right: 2rem;
+      background: var(--brand-orange); color: #fff;
+      padding: 0.75rem 1.25rem; border-radius: var(--radius-md);
+      font-size: 0.82rem; font-weight: 700;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+      transform: translateY(100px); opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 1000;
+    }
+    #toast.show {
+      transform: translateY(0); opacity: 1;
+    }
+
+    /* ── Footer ────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 3rem 4%; text-align: center;
+      color: var(--text-dim); font-size: 0.82rem;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Marquee bar -->
+  <div class="marquee-bar">
+    <div class="marquee-inner">
+      <span><em>INGELOX LOGISTICS ERP</em> · ESPECIFICACIÓN TÉCNICA FORMAL & DIAGRAMAS UML EDITABLES</span>
+      <span>MOTOR DE DATOS: <em>POSTGRESQL 15 (SUPABASE)</em> · NORMALIZACIÓN 3FN</span>
+      <span>PIPELINE LOGÍSTICO: <em>COTIZACIÓN ➔ INSTRUCCIÓN ➔ CONTROL DE TRÁFICO ➔ PORTAL TRACKING</em></span>
+      <span>DESPLIEGUE SEGURO: <em>COMO-VA-MI-CARGA.INGELOX.COM.CO</em> SIN INTERRUPCIÓN</span>
+      <span><em>INGELOX LOGISTICS ERP</em> · ESPECIFICACIÓN TÉCNICA FORMAL & DIAGRAMAS UML EDITABLES</span>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="#" class="brand">
+      INGELOX <span>ERP</span>
+      <span class="brand-tag">UML & ERD</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#casos-de-uso">01. Casos de Uso</a></li>
+      <li><a href="#arquitectura">02. Arquitectura</a></li>
+      <li><a href="#secuencias">03. Secuencias</a></li>
+      <li><a href="#modelo-erd">04. Modelo ERD</a></li>
+      <li><a href="#clases-uml">05. Clases UML</a></li>
+      <li><a href="#estados-trafico">06. Ciclos de Vida</a></li>
+      <li><a href="#rbac">07. Seguridad RBAC</a></li>
+      <li><a href="#ddl">08. Script DDL</a></li>
+    </ul>
+    <a href="https://como-va-mi-carga.ingelox.com.co" target="_blank" class="btn-portal">Portal Clientes ↗</a>
+  </nav>
+
+  <main class="container">
+
+    <!-- Hero Banner -->
+    <section class="hero-banner">
+      <div class="eyebrow">Documentación de Ingeniería de Software · Arquitectura 2026</div>
+      <h1>Ingelox Logistics ERP & Tracking System</h1>
+      <p>
+        Compendio exhaustivo de especificación arquitectónica, diagramas de diseño modelados en <strong>UML 2.5</strong>, 
+        modelo de datos relacional normalizado en <strong>Tercera Forma Normal (3FN)</strong> y flujos operativos interconectados 
+        para la operación de freight forwarding, control aduanero y portal de clientes en tiempo real. 
+        <strong>Todos los diagramas cuentan con código fuente Mermaid 100% editable</strong> para exportación directa a Draw.io o Mermaid Live Editor.
+      </p>
+      <div class="badge-bar">
+        <span class="badge badge-highlight">React 19 SPA</span>
+        <span class="badge">TypeScript</span>
+        <span class="badge">Vite 8</span>
+        <span class="badge">PostgreSQL 15</span>
+        <span class="badge">Supabase BaaS</span>
+        <span class="badge">ExcelJS & PDF Engine</span>
+        <span class="badge badge-highlight">Dual-Store Resiliente</span>
+        <span class="badge">Row Level Security (RLS)</span>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DIAGRAMA 1: CASOS DE USO (UML)
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="casos-de-uso">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">DIAGRAMA 01</span>
+          <h2>Diagrama de Casos de Uso (UML)</h2>
+          <p class="desc">
+            Modelado de los actores clave del sistema logístico (<strong>Operador de Tráfico</strong>, <strong>Asesor Comercial</strong>, 
+            <strong>Administrador</strong>, <strong>Cliente en Portal Tracking</strong> y <strong>Motor Supabase / PostgreSQL</strong>), 
+            con relaciones de inclusión <em>&lt;&lt;include&gt;&gt;</em> y extensión <em>&lt;&lt;extend&gt;&gt;</em>.
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-viewport">
+        <div class="mermaid" id="mermaid-01">
+flowchart LR
+  subgraph Actores ["👥 Actores del Sistema"]
+    direction TB
+    ADM(["🛡️ Administrador General\n(Superadmin / Dirección)"])
+    OP(["🚚 Operador de Tráfico\n(Logística & Tráfico Operativo)"])
+    COM(["💼 Asesor Comercial\n(Pricing & Cotizaciones)"])
+    CLI(["🏢 Cliente / Empresa\n(Portal de Seguimiento Tracking)"])
+    SYS(["⚙️ Motor Supabase / PostgreSQL\n(Backend BaaS & Eventos Realtime)"])
+  end
+
+  subgraph UC_COM ["Módulo Comercial & Facturación (Practiko)"]
+    direction TB
+    UC_TERC(["Gestionar Directorio de Terceros\n(NIT, DV DIAN, Crédito, Clasificación)"])
+    UC_CONC(["Administrar Conceptos de Facturación\n(Catálogo de Tarifas e IVA)"])
+    UC_COT_CREAR(["Elaborar Cotización Formal\n(Ítems, Tarifas Venta/Costo, Monedas)"])
+    UC_COT_ESTADO(["Actualizar Estado de Cotización\n(Borrador, Enviada, Aprobada, Rechazada)"])
+    UC_COT_PDF(["Generar Documento PDF de Oferta\n(Vista Previa & Descarga)"])
+    UC_COT_TO_INST(["Convertir Oferta Aprobada en Instrucción\n(Transferencia 1-Clic a Instrucción DO)"])
+  end
+
+  subgraph UC_OPS ["Módulo Operativo & Tráfico Logístico (Traffic Control)"]
+    direction TB
+    UC_INST_CREAR(["Elaborar Instrucción de Embarque\n(Datos del Embarque & Desglose Costos)"])
+    UC_INST_EXCEL(["Exportar Plantilla Oficial Excel (.xlsx)\n& PDF de Instrucción"])
+    UC_INST_TO_SHIP(["Apertura de Operación en Tráfico\n(Vinculación Automática por ID DO)"])
+    UC_SHIP_REG(["Registrar Nueva Operación DO\n(Marítimo / Aéreo / Terrestre, Ruta, Fechas)"])
+    UC_SHIP_TRACK(["Monitorear Tablero de Tráfico\n(Métricas, Alertas ETA y Días Libres)"])
+    UC_SHIP_QUICK(["Registrar Novedad / Hito Operativo\n(Paso de Tráfico, Observación y Ubicación)"])
+    UC_SHIP_DOCS(["Cargar Documentos de Embarque\n(BL, Guía Aérea, Factura, Packing List)"])
+    UC_SHIP_ASSIGN(["Vincular Carga a Empresa Cliente\n(Habilitación para Portal Tracking)"])
+  end
+
+  subgraph UC_TRACK ["Portal de Seguimiento Clientes (como-va-mi-carga)"]
+    direction TB
+    UT_CONSULTA(["Consultar Estado de Cargas en Tránsito\n(Búsqueda por DO, Contenedor o Master)"])
+    UT_TIMELINE(["Visualizar Línea de Tiempo de Hitos\n(Fechas ETD/ETA/ATD/ATA y Novedades)"])
+    UT_DOC_DOWNLOAD(["Descargar Documentos de Despacho\n(PDFs de Soporte Autorizados)"])
+    UT_ALERT(["Recibir Notificaciones de Alerta y Retrasos"])
+  end
+
+  subgraph UC_SYS ["Motor de Base de Datos & Servicios Supabase"]
+    direction TB
+    US_RLS(["Validar Políticas Row Level Security\n(Perfiles Internos vs Cuentas Cliente)"])
+    US_HIST(["Registrar Historial Inmutable de Estados\n(Tabla shipment_updates con Auditoría)"])
+    US_REALTIME(["Emitir Eventos en Tiempo Real\n(WebSockets a Dashboard y Portal Cliente)"])
+    US_STORAGE(["Almacenar Archivos en Supabase Storage\n(Bucket documents con URLs Firmadas)"])
+  end
+
+  COM --> UC_TERC
+  COM --> UC_CONC
+  COM --> UC_COT_CREAR
+  COM --> UC_COT_ESTADO
+  COM --> UC_COT_PDF
+  UC_COT_CREAR -.-> |"<<include>>"| UC_TERC
+  UC_COT_CREAR -.-> |"<<include>>"| UC_CONC
+  UC_COT_ESTADO -.-> |"<<extend>>"| UC_COT_TO_INST
+
+  OP --> UC_INST_CREAR
+  OP --> UC_INST_EXCEL
+  OP --> UC_INST_TO_SHIP
+  OP --> UC_SHIP_REG
+  OP --> UC_SHIP_TRACK
+  OP --> UC_SHIP_QUICK
+  OP --> UC_SHIP_DOCS
+  OP --> UC_SHIP_ASSIGN
+
+  UC_COT_TO_INST -.-> |"<<include>>"| UC_INST_CREAR
+  UC_INST_TO_SHIP -.-> |"<<include>>"| UC_SHIP_REG
+  UC_SHIP_REG -.-> |"<<include>>"| UC_SHIP_ASSIGN
+  UC_SHIP_QUICK -.-> |"<<include>>"| US_HIST
+  UC_SHIP_DOCS -.-> |"<<include>>"| US_STORAGE
+
+  ADM --> UC_TERC
+  ADM --> UC_CONC
+  ADM --> UC_COT_CREAR
+  ADM --> UC_INST_CREAR
+  ADM --> UC_SHIP_TRACK
+  ADM --> UC_SHIP_QUICK
+  ADM --> UC_SHIP_ASSIGN
+
+  CLI --> UT_CONSULTA
+  CLI --> UT_TIMELINE
+  CLI --> UT_DOC_DOWNLOAD
+  UT_TIMELINE -.-> |"<<extend>>"| UT_ALERT
+
+  SYS --> US_RLS
+  SYS --> US_HIST
+  SYS --> US_REALTIME
+  SYS --> US_STORAGE
+  US_HIST -.-> |"<<notify>>"| US_REALTIME
+  US_REALTIME -.-> |"<<socket push>>"| UT_TIMELINE
+  US_REALTIME -.-> |"<<socket push>>"| UC_SHIP_TRACK
+
+  style UC_COM fill:#0f172a,stroke:#10b981,stroke-width:1.5px
+  style UC_OPS fill:#0f172a,stroke:#f97316,stroke-width:1.5px
+  style UC_TRACK fill:#0f172a,stroke:#f59e0b,stroke-width:1.5px
+  style UC_SYS fill:#0f172a,stroke:#0284c7,stroke-width:1.5px
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">📄 Código Fuente Mermaid Editable</span>
+          <button class="copy-btn" onclick="copyCode('src-01')">⎘ Copiar Código Mermaid</button>
+        </div>
+        <pre class="source-code" id="src-01">flowchart LR
+  subgraph Actores ["👥 Actores del Sistema"]
+    direction TB
+    ADM(["🛡️ Administrador General\n(Superadmin / Dirección)"])
+    OP(["🚚 Operador de Tráfico\n(Logística & Tráfico Operativo)"])
+    COM(["💼 Asesor Comercial\n(Pricing & Cotizaciones)"])
+    CLI(["🏢 Cliente / Empresa\n(Portal de Seguimiento Tracking)"])
+    SYS(["⚙️ Motor Supabase / PostgreSQL\n(Backend BaaS & Eventos Realtime)"])
+  end
+
+  subgraph UC_COM ["Módulo Comercial & Facturación (Practiko)"]
+    direction TB
+    UC_TERC(["Gestionar Directorio de Terceros\n(NIT, DV DIAN, Crédito, Clasificación)"])
+    UC_CONC(["Administrar Conceptos de Facturación\n(Catálogo de Tarifas e IVA)"])
+    UC_COT_CREAR(["Elaborar Cotización Formal\n(Ítems, Tarifas Venta/Costo, Monedas)"])
+    UC_COT_ESTADO(["Actualizar Estado de Cotización\n(Borrador, Enviada, Aprobada, Rechazada)"])
+    UC_COT_PDF(["Generar Documento PDF de Oferta\n(Vista Previa & Descarga)"])
+    UC_COT_TO_INST(["Convertir Oferta Aprobada en Instrucción\n(Transferencia 1-Clic a Instrucción DO)"])
+  end
+
+  subgraph UC_OPS ["Módulo Operativo & Tráfico Logístico (Traffic Control)"]
+    direction TB
+    UC_INST_CREAR(["Elaborar Instrucción de Embarque\n(Datos del Embarque & Desglose Costos)"])
+    UC_INST_EXCEL(["Exportar Plantilla Oficial Excel (.xlsx)\n& PDF de Instrucción"])
+    UC_INST_TO_SHIP(["Apertura de Operación en Tráfico\n(Vinculación Automática por ID DO)"])
+    UC_SHIP_REG(["Registrar Nueva Operación DO\n(Marítimo / Aéreo / Terrestre, Ruta, Fechas)"])
+    UC_SHIP_TRACK(["Monitorear Tablero de Tráfico\n(Métricas, Alertas ETA y Días Libres)"])
+    UC_SHIP_QUICK(["Registrar Novedad / Hito Operativo\n(Paso de Tráfico, Observación y Ubicación)"])
+    UC_SHIP_DOCS(["Cargar Documentos de Embarque\n(BL, Guía Aérea, Factura, Packing List)"])
+    UC_SHIP_ASSIGN(["Vincular Carga a Empresa Cliente\n(Habilitación para Portal Tracking)"])
+  end
+
+  subgraph UC_TRACK ["Portal de Seguimiento Clientes (como-va-mi-carga)"]
+    direction TB
+    UT_CONSULTA(["Consultar Estado de Cargas en Tránsito\n(Búsqueda por DO, Contenedor o Master)"])
+    UT_TIMELINE(["Visualizar Línea de Tiempo de Hitos\n(Fechas ETD/ETA/ATD/ATA y Novedades)"])
+    UT_DOC_DOWNLOAD(["Descargar Documentos de Despacho\n(PDFs de Soporte Autorizados)"])
+    UT_ALERT(["Recibir Notificaciones de Alerta y Retrasos"])
+  end
+
+  subgraph UC_SYS ["Motor de Base de Datos & Servicios Supabase"]
+    direction TB
+    US_RLS(["Validar Políticas Row Level Security\n(Perfiles Internos vs Cuentas Cliente)"])
+    US_HIST(["Registrar Historial Inmutable de Estados\n(Tabla shipment_updates con Auditoría)"])
+    US_REALTIME(["Emitir Eventos en Tiempo Real\n(WebSockets a Dashboard y Portal Cliente)"])
+    US_STORAGE(["Almacenar Archivos en Supabase Storage\n(Bucket documents con URLs Firmadas)"])
+  end
+
+  COM --> UC_TERC
+  COM --> UC_CONC
+  COM --> UC_COT_CREAR
+  COM --> UC_COT_ESTADO
+  COM --> UC_COT_PDF
+  UC_COT_CREAR -.-> |"<<include>>"| UC_TERC
+  UC_COT_CREAR -.-> |"<<include>>"| UC_CONC
+  UC_COT_ESTADO -.-> |"<<extend>>"| UC_COT_TO_INST
+
+  OP --> UC_INST_CREAR
+  OP --> UC_INST_EXCEL
+  OP --> UC_INST_TO_SHIP
+  OP --> UC_SHIP_REG
+  OP --> UC_SHIP_TRACK
+  OP --> UC_SHIP_QUICK
+  OP --> UC_SHIP_DOCS
+  OP --> UC_SHIP_ASSIGN
+
+  UC_COT_TO_INST -.-> |"<<include>>"| UC_INST_CREAR
+  UC_INST_TO_SHIP -.-> |"<<include>>"| UC_SHIP_REG
+  UC_SHIP_REG -.-> |"<<include>>"| UC_SHIP_ASSIGN
+  UC_SHIP_QUICK -.-> |"<<include>>"| US_HIST
+  UC_SHIP_DOCS -.-> |"<<include>>"| US_STORAGE
+
+  ADM --> UC_TERC
+  ADM --> UC_CONC
+  ADM --> UC_COT_CREAR
+  ADM --> UC_INST_CREAR
+  ADM --> UC_SHIP_TRACK
+  ADM --> UC_SHIP_QUICK
+  ADM --> UC_SHIP_ASSIGN
+
+  CLI --> UT_CONSULTA
+  CLI --> UT_TIMELINE
+  CLI --> UT_DOC_DOWNLOAD
+  UT_TIMELINE -.-> |"<<extend>>"| UT_ALERT
+
+  SYS --> US_RLS
+  SYS --> US_HIST
+  SYS --> US_REALTIME
+  SYS --> US_STORAGE
+  US_HIST -.-> |"<<notify>>"| US_REALTIME
+  US_REALTIME -.-> |"<<socket push>>"| UT_TIMELINE
+  US_REALTIME -.-> |"<<socket push>>"| UC_SHIP_TRACK</pre>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DIAGRAMA 2: ARQUITECTURA Y DEPENDENCIAS (3 CAPAS)
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="arquitectura">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">DIAGRAMA 02</span>
+          <h2>Arquitectura del Sistema y Diagrama de Componentes (3 Capas)</h2>
+          <p class="desc">
+            Desacoplamiento arquitectónico en 3 niveles: <strong>Capa Frontend SPA</strong> (React 19 + TypeScript), 
+            <strong>Capa de Servicios de Dominio</strong> (Dual-Store con fallback local + Motores de exportación ExcelJS/PDF), 
+            y <strong>Capa Cloud & Persistencia</strong> (Supabase PostgreSQL 15, Auth Gateway y Storage) conectada con el portal de producción.
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-viewport">
+        <div class="mermaid" id="mermaid-02">
+graph TB
+  subgraph CAPA_FRONTEND ["🖥️ CAPA 1: CLIENTE / FRONTEND SPA (React 19 + TypeScript + Vite)"]
+    direction TB
+    V_LOGIN["/login (LoginPage)"]
+    V_OPS["/operations (Tablero Tráfico)"]
+    V_SHIP_NEW["/shipments/new (Crear Carga)"]
+    V_SHIP_DET["/shipments/:id (Detalle & Hitos)"]
+    V_COT["/quotations (Cotizaciones)"]
+    V_INST["/instructions (Instrucciones)"]
+    V_TERC["/third-parties (Directorio DIAN)"]
+    V_CONC["/billing-concepts (Tarifas)"]
+    V_CLI["/clients (Cuentas Tracking)"]
+    V_USR["/users (Directorio Operadores)"]
+    CTX_AUTH["AuthContext.tsx (Sesión y RLS)"]
+  end
+
+  subgraph CAPA_SERVICIOS ["⚡ CAPA 2: SERVICIOS DE NEGOCIO & DOMINIO (Client Services)"]
+    direction TB
+    SRV_COT["PractikoQuotationService"]
+    SRV_INST["ShippingInstructionService"]
+    SRV_TERC["PractikoThirdPartyService"]
+    SRV_CONC["PractikoBillingConceptService"]
+    DUAL_STORE["Dual-Store Engine\n(Supabase ⟷ LocalStorage Fallback)"]
+    ENG_EXCEL["useExcelGenerator (ExcelJS)"]
+    ENG_PDF["usePdfGenerator (HTML5 Print)"]
+    UTIL_DIAN["dian.ts (Módulo 11 DV)"]
+    UTIL_DATE["dateUtils.ts (Alertas Días Libres)"]
+
+    SRV_COT --> DUAL_STORE
+    SRV_INST --> DUAL_STORE
+    SRV_TERC --> DUAL_STORE
+    SRV_CONC --> DUAL_STORE
+  end
+
+  subgraph CAPA_CLOUD ["☁️ CAPA 3: SERVICIOS CLOUD SUPABASE (PostgreSQL 15)"]
+    direction TB
+    SB_AUTH["Supabase Auth Gateway (GoTrue JWT)"]
+    SB_REALTIME["Realtime Engine (WebSockets wss://)"]
+    SB_STORAGE["Supabase Storage (Bucket: documents)"]
+    SB_REST["PostgREST API REST Engine"]
+
+    subgraph PG_DB ["🗄️ Base de Datos Relacional"]
+      T_SHIP["shipments"]
+      T_UPD["shipment_updates"]
+      T_DOC["documents"]
+      T_COMP["companies"]
+      T_COMP_SHIP["company_shipment"]
+      T_PROF["profiles"]
+      T_TERC["third_parties"]
+      T_CONC["billing_concepts"]
+      T_QUOT["quotations & items"]
+      T_INST["shipping_instructions & concepts"]
+    end
+    SB_REST --> PG_DB
+  end
+
+  subgraph EXT_TRACKING ["🌐 PORTAL PRODUCCIÓN (como-va-mi-carga.ingelox.com.co)"]
+    PORTAL_WEB["Portal Web Clientes"]
+    PORTAL_WEB ==> |"Lee expedientes asignados"| SB_REST
+    SB_REALTIME ==> |"Notifica novedades en vivo"| PORTAL_WEB
+  end
+
+  V_OPS --> UTIL_DATE
+  V_COT --> SRV_COT
+  V_COT --> ENG_PDF
+  V_INST --> SRV_INST
+  V_INST --> ENG_EXCEL
+  V_TERC --> UTIL_DIAN
+  CTX_AUTH ==> SB_AUTH
+  DUAL_STORE ==> SB_REST
+  V_OPS ==> SB_REST
+  V_SHIP_DET ==> SB_STORAGE
+  V_OPS -.-> SB_REALTIME
+
+  style CAPA_FRONTEND fill:#0f172a,stroke:#38bdf8,stroke-width:2px
+  style CAPA_SERVICIOS fill:#0f172a,stroke:#10b981,stroke-width:2px
+  style CAPA_CLOUD fill:#0f172a,stroke:#f97316,stroke-width:2px
+  style PG_DB fill:#1e293b,stroke:#f59e0b,stroke-width:1.5px
+  style EXT_TRACKING fill:#0284c7,stroke:#38bdf8,stroke-width:2px
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">📄 Código Fuente Mermaid Editable</span>
+          <button class="copy-btn" onclick="copyCode('src-02')">⎘ Copiar Código Mermaid</button>
+        </div>
+        <pre class="source-code" id="src-02">graph TB
+  subgraph CAPA_FRONTEND ["🖥️ CAPA 1: CLIENTE / FRONTEND SPA (React 19 + TypeScript + Vite)"]
+    direction TB
+    V_LOGIN["/login (LoginPage)"]
+    V_OPS["/operations (Tablero Tráfico)"]
+    V_SHIP_NEW["/shipments/new (Crear Carga)"]
+    V_SHIP_DET["/shipments/:id (Detalle & Hitos)"]
+    V_COT["/quotations (Cotizaciones)"]
+    V_INST["/instructions (Instrucciones)"]
+    V_TERC["/third-parties (Directorio DIAN)"]
+    V_CONC["/billing-concepts (Tarifas)"]
+    V_CLI["/clients (Cuentas Tracking)"]
+    V_USR["/users (Directorio Operadores)"]
+    CTX_AUTH["AuthContext.tsx (Sesión y RLS)"]
+  end
+
+  subgraph CAPA_SERVICIOS ["⚡ CAPA 2: SERVICIOS DE NEGOCIO & DOMINIO (Client Services)"]
+    direction TB
+    SRV_COT["PractikoQuotationService"]
+    SRV_INST["ShippingInstructionService"]
+    SRV_TERC["PractikoThirdPartyService"]
+    SRV_CONC["PractikoBillingConceptService"]
+    DUAL_STORE["Dual-Store Engine\n(Supabase ⟷ LocalStorage Fallback)"]
+    ENG_EXCEL["useExcelGenerator (ExcelJS)"]
+    ENG_PDF["usePdfGenerator (HTML5 Print)"]
+    UTIL_DIAN["dian.ts (Módulo 11 DV)"]
+    UTIL_DATE["dateUtils.ts (Alertas Días Libres)"]
+
+    SRV_COT --> DUAL_STORE
+    SRV_INST --> DUAL_STORE
+    SRV_TERC --> DUAL_STORE
+    SRV_CONC --> DUAL_STORE
+  end
+
+  subgraph CAPA_CLOUD ["☁️ CAPA 3: SERVICIOS CLOUD SUPABASE (PostgreSQL 15)"]
+    direction TB
+    SB_AUTH["Supabase Auth Gateway (GoTrue JWT)"]
+    SB_REALTIME["Realtime Engine (WebSockets wss://)"]
+    SB_STORAGE["Supabase Storage (Bucket: documents)"]
+    SB_REST["PostgREST API REST Engine"]
+
+    subgraph PG_DB ["🗄️ Base de Datos Relacional"]
+      T_SHIP["shipments"]
+      T_UPD["shipment_updates"]
+      T_DOC["documents"]
+      T_COMP["companies"]
+      T_COMP_SHIP["company_shipment"]
+      T_PROF["profiles"]
+      T_TERC["third_parties"]
+      T_CONC["billing_concepts"]
+      T_QUOT["quotations & items"]
+      T_INST["shipping_instructions & concepts"]
+    end
+    SB_REST --> PG_DB
+  end
+
+  subgraph EXT_TRACKING ["🌐 PORTAL PRODUCCIÓN (como-va-mi-carga.ingelox.com.co)"]
+    PORTAL_WEB["Portal Web Clientes"]
+    PORTAL_WEB ==> |"Lee expedientes asignados"| SB_REST
+    SB_REALTIME ==> |"Notifica novedades en vivo"| PORTAL_WEB
+  end
+
+  V_OPS --> UTIL_DATE
+  V_COT --> SRV_COT
+  V_COT --> ENG_PDF
+  V_INST --> SRV_INST
+  V_INST --> ENG_EXCEL
+  V_TERC --> UTIL_DIAN
+  CTX_AUTH ==> SB_AUTH
+  DUAL_STORE ==> SB_REST
+  V_OPS ==> SB_REST
+  V_SHIP_DET ==> SB_STORAGE
+  V_OPS -.-> SB_REALTIME</pre>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DIAGRAMA 3: DIAGRAMAS DE SECUENCIA (UML)
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="secuencias">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">DIAGRAMA 03</span>
+          <h2>Diagramas de Secuencia (UML) — Flujos Operativos Críticos</h2>
+          <p class="desc">
+            Interacciones paso a paso entre usuarios, componentes de interfaz, capas de persistencia y servicios de red. 
+            A continuación se presenta el flujo principal: <strong>Pipeline Comercial ➔ Instrucción ➔ Control de Tráfico</strong>.
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-viewport">
+        <div class="mermaid" id="mermaid-03">
+sequenceDiagram
+  autonumber
+  actor COM as 💼 Asesor Comercial
+  actor OP as 🚚 Operador de Tráfico
+  participant UI_COT as Cotizaciones UI (/quotations)
+  participant UI_INST as Instrucciones UI (/instructions)
+  participant UI_TRAF as Tráfico UI (/shipments/new)
+  participant SRV as Practiko Dual-Store Service
+  participant DB as Supabase PostgreSQL
+  participant PORTAL as 🌐 Portal Tracking Clientes
+
+  Note over COM, DB: FASE 1: Creación y Aprobación de la Cotización
+  COM->>UI_COT: Ingresa ítems, tarifas (venta/costo), cliente y condiciones
+  UI_COT->>SRV: saveQuotation(quotationPayload)
+  SRV->>DB: INSERT INTO quotations + quotation_items
+  DB-->>SRV: Confirmación (id_cotizacion, consecutivo)
+  SRV-->>UI_COT: Cotización guardada en estado 'enviada'
+  COM->>UI_COT: Cambia estado a 'aprobada'
+  UI_COT->>SRV: updateQuotationStatus(id, 'aprobada')
+  SRV->>DB: UPDATE quotations SET estado = 'aprobada'
+
+  Note over COM, OP: FASE 2: Transferencia 1-Clic a Instrucción de Embarque
+  COM->>UI_COT: Clic en "Generar Instrucción"
+  UI_COT->>UI_INST: Redirecciona a /instructions/new?quotationId=COT-101
+  UI_INST->>SRV: getQuotationById(COT-101)
+  SRV-->>UI_INST: Datos precargados: Cliente, Asesor, Vía, Tarifas y Notas
+  OP->>UI_INST: Completa Incoterm, Ruta (ej. BOG - GDL) y comentarios operativos
+  OP->>UI_INST: Clic en "Guardar Instrucción"
+  UI_INST->>SRV: saveInstruction(instructionPayload)
+  SRV->>DB: INSERT INTO shipping_instructions + concepts
+  DB-->>SRV: Instrucción creada (do_number: EXP-26042)
+
+  Note over OP, PORTAL: FASE 3: Apertura en Control de Tráfico & Asignación
+  OP->>UI_INST: Clic en "Abrir en Tráfico"
+  UI_INST->>UI_TRAF: Redirecciona a /shipments/new?instructionId=EXP-26042
+  UI_TRAF->>SRV: getInstructionById(EXP-26042)
+  SRV-->>UI_TRAF: Precarga DO, Modo (air/maritime), Origen/Destino, Consignatario
+  OP->>UI_TRAF: Selecciona Empresa Portal Tracking y confirma fechas ETD/ETA
+  OP->>UI_TRAF: Clic en "Guardar Operación"
+  UI_TRAF->>DB: INSERT INTO shipments (do_number, type, origin, destination, etc.)
+  DB-->>UI_TRAF: Expediente de Tráfico Creado (id_shipment)
+  UI_TRAF->>DB: INSERT INTO company_shipment (company_id, shipment_id)
+  UI_TRAF->>DB: INSERT INTO shipment_updates (Apertura de expediente con notas)
+  DB-->>PORTAL: Carga inmediatamente visible en el portal de seguimiento del cliente!
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">📄 Código Fuente Mermaid Editable</span>
+          <button class="copy-btn" onclick="copyCode('src-03')">⎘ Copiar Código Mermaid</button>
+        </div>
+        <pre class="source-code" id="src-03">sequenceDiagram
+  autonumber
+  actor COM as 💼 Asesor Comercial
+  actor OP as 🚚 Operador de Tráfico
+  participant UI_COT as Cotizaciones UI (/quotations)
+  participant UI_INST as Instrucciones UI (/instructions)
+  participant UI_TRAF as Tráfico UI (/shipments/new)
+  participant SRV as Practiko Dual-Store Service
+  participant DB as Supabase PostgreSQL
+  participant PORTAL as 🌐 Portal Tracking Clientes
+
+  Note over COM, DB: FASE 1: Creación y Aprobación de la Cotización
+  COM->>UI_COT: Ingresa ítems, tarifas (venta/costo), cliente y condiciones
+  UI_COT->>SRV: saveQuotation(quotationPayload)
+  SRV->>DB: INSERT INTO quotations + quotation_items
+  DB-->>SRV: Confirmación (id_cotizacion, consecutivo)
+  SRV-->>UI_COT: Cotización guardada en estado 'enviada'
+  COM->>UI_COT: Cambia estado a 'aprobada'
+  UI_COT->>SRV: updateQuotationStatus(id, 'aprobada')
+  SRV->>DB: UPDATE quotations SET estado = 'aprobada'
+
+  Note over COM, OP: FASE 2: Transferencia 1-Clic a Instrucción de Embarque
+  COM->>UI_COT: Clic en "Generar Instrucción"
+  UI_COT->>UI_INST: Redirecciona a /instructions/new?quotationId=COT-101
+  UI_INST->>SRV: getQuotationById(COT-101)
+  SRV-->>UI_INST: Datos precargados: Cliente, Asesor, Vía, Tarifas y Notas
+  OP->>UI_INST: Completa Incoterm, Ruta (ej. BOG - GDL) y comentarios operativos
+  OP->>UI_INST: Clic en "Guardar Instrucción"
+  UI_INST->>SRV: saveInstruction(instructionPayload)
+  SRV->>DB: INSERT INTO shipping_instructions + concepts
+  DB-->>SRV: Instrucción creada (do_number: EXP-26042)
+
+  Note over OP, PORTAL: FASE 3: Apertura en Control de Tráfico & Asignación
+  OP->>UI_INST: Clic en "Abrir en Tráfico"
+  UI_INST->>UI_TRAF: Redirecciona a /shipments/new?instructionId=EXP-26042
+  UI_TRAF->>SRV: getInstructionById(EXP-26042)
+  SRV-->>UI_TRAF: Precarga DO, Modo (air/maritime), Origen/Destino, Consignatario
+  OP->>UI_TRAF: Selecciona Empresa Portal Tracking y confirma fechas ETD/ETA
+  OP->>UI_TRAF: Clic en "Guardar Operación"
+  UI_TRAF->>DB: INSERT INTO shipments (do_number, type, origin, destination, etc.)
+  DB-->>UI_TRAF: Expediente de Tráfico Creado (id_shipment)
+  UI_TRAF->>DB: INSERT INTO company_shipment (company_id, shipment_id)
+  UI_TRAF->>DB: INSERT INTO shipment_updates (Apertura de expediente con notas)
+  DB-->>PORTAL: Carga inmediatamente visible en el portal de seguimiento del cliente!</pre>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DIAGRAMA 4: MODELO ENTIDAD-RELACIÓN (MER / DER EN 3FN)
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="modelo-erd">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">DIAGRAMA 04</span>
+          <h2>Modelo Entidad-Relación (MER / DER en 3FN) — Notación Crow's Foot</h2>
+          <p class="desc">
+            Especificación relacional completa para <strong>PostgreSQL 15</strong> en Supabase. Comprende las 12 tablas 
+            del sistema (esquemas de Tráfico, Tracking y Comercial Practiko) con cardinalidades exactas, tipos de datos y llaves PK/FK.
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-viewport">
+        <div class="mermaid" id="mermaid-04">
+erDiagram
+  companies ||--o{ profiles : "asigna_usuarios (1:N)"
+  companies ||--o{ company_shipment : "habilita_acceso (1:N)"
+  shipments ||--o{ company_shipment : "vincula_empresa (1:N)"
+
+  shipments ||--o{ shipment_updates : "registra_trazabilidad (1:N)"
+  shipments ||--o{ documents : "adjunta_documentos (1:N)"
+  profiles ||--o{ shipments : "crea_expediente (1:N)"
+  profiles ||--o{ shipment_updates : "reporta_novedad (1:N)"
+
+  third_parties ||--o{ quotations : "titular_comercial (1:N)"
+  quotations ||--o{ quotation_items : "contiene_desglose (1:N)"
+  
+  shipping_instructions ||--o{ shipping_instruction_concepts : "desglosa_conceptos (1:N)"
+  quotations ||--o{ shipping_instructions : "convierte_en (0..1)"
+  shipping_instructions ||--o{ shipments : "transfiere_a (0..1)"
+
+  companies {
+    UUID id PK
+    VARCHAR_255 name
+    TIMESTAMPTZ created_at
+  }
+
+  profiles {
+    UUID id PK
+    VARCHAR_120 email UK
+    VARCHAR_80 nickname
+    BOOLEAN is_internal
+    UUID company_id FK
+    VARCHAR_20 status
+    TIMESTAMPTZ created_at
+  }
+
+  company_shipment {
+    UUID company_id PK_FK
+    UUID shipment_id PK_FK
+  }
+
+  shipments {
+    UUID id PK
+    VARCHAR_50 do_number UK
+    VARCHAR_100 origin
+    VARCHAR_100 destination
+    VARCHAR_20 shipment_type
+    VARCHAR_50 current_status
+    VARCHAR_20 incoterm
+    DATE etd
+    DATE eta
+    TIMESTAMPTZ atd
+    TIMESTAMPTZ ata
+    INT free_days
+    VARCHAR_100 carrier
+    VARCHAR_50 container_number
+    VARCHAR_150 exporter
+    VARCHAR_150 consignee
+    VARCHAR_20 status
+    UUID created_by FK
+    TIMESTAMPTZ created_at
+  }
+
+  shipment_updates {
+    UUID id PK
+    UUID shipment_id FK
+    VARCHAR_50 status
+    TEXT observation
+    VARCHAR_150 location
+    TEXT media_url
+    UUID updated_by FK
+    TIMESTAMPTZ created_at
+  }
+
+  documents {
+    UUID id PK
+    UUID shipment_id FK
+    VARCHAR_255 file_name
+    BIGINT file_size
+    VARCHAR_255 storage_path
+    UUID created_by FK
+    TIMESTAMPTZ created_at
+  }
+
+  third_parties {
+    UUID id PK
+    VARCHAR_20 tipo_persona
+    VARCHAR_20 tipo_id
+    VARCHAR_30 identificacion
+    VARCHAR_5 dv
+    VARCHAR_200 razon_social
+    VARCHAR_100 direccion
+    VARCHAR_30 telefono
+    VARCHAR_80 ciudad
+    VARCHAR_150 correo_fe
+    INT dias_credito
+    BOOLEAN es_cliente
+    BOOLEAN es_proveedor
+    TIMESTAMPTZ created_at
+  }
+
+  billing_concepts {
+    UUID id PK
+    VARCHAR_50 codigo UK
+    VARCHAR_150 nombre
+    BOOLEAN aplica_iva
+    NUMERIC porcentaje_iva
+    VARCHAR_10 moneda_default
+    NUMERIC valor_sugerido
+    VARCHAR_50 categoria
+  }
+
+  quotations {
+    UUID id PK
+    VARCHAR_50 consecutivo UK
+    DATE fecha
+    DATE validez
+    VARCHAR_120 vendedor
+    UUID tercero_id FK
+    VARCHAR_200 cliente_nombre
+    NUMERIC subtotal
+    NUMERIC total_iva
+    NUMERIC total
+    VARCHAR_10 moneda
+    VARCHAR_20 estado
+  }
+
+  quotation_items {
+    UUID id PK
+    UUID quotation_id FK
+    INT orden
+    NUMERIC cantidad
+    VARCHAR_150 concepto
+    NUMERIC valor_unitario
+    NUMERIC subtotal
+    NUMERIC iva
+    NUMERIC total
+  }
+
+  shipping_instructions {
+    VARCHAR_80 id PK
+    VARCHAR_20 estado
+    VARCHAR_50 do_number
+    DATE fecha_creacion
+    VARCHAR_120 comercial
+    VARCHAR_200 cliente
+    VARCHAR_20 incoterm
+    VARCHAR_100 ruta
+    VARCHAR_20 via
+    TEXT comentarios
+  }
+
+  shipping_instruction_concepts {
+    VARCHAR_80 id PK
+    VARCHAR_80 instruction_id FK
+    INT orden
+    VARCHAR_150 concepto
+    INT vendido
+    VARCHAR_150 proveedor
+    VARCHAR_50 costo
+    VARCHAR_10 moneda_costo
+    VARCHAR_50 venta
+    VARCHAR_10 moneda_venta
+  }
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">📄 Código Fuente Mermaid Editable</span>
+          <button class="copy-btn" onclick="copyCode('src-04')">⎘ Copiar Código Mermaid</button>
+        </div>
+        <pre class="source-code" id="src-04">erDiagram
+  companies ||--o{ profiles : "asigna_usuarios (1:N)"
+  companies ||--o{ company_shipment : "habilita_acceso (1:N)"
+  shipments ||--o{ company_shipment : "vincula_empresa (1:N)"
+
+  shipments ||--o{ shipment_updates : "registra_trazabilidad (1:N)"
+  shipments ||--o{ documents : "adjunta_documentos (1:N)"
+  profiles ||--o{ shipments : "crea_expediente (1:N)"
+  profiles ||--o{ shipment_updates : "reporta_novedad (1:N)"
+
+  third_parties ||--o{ quotations : "titular_comercial (1:N)"
+  quotations ||--o{ quotation_items : "contiene_desglose (1:N)"
+  
+  shipping_instructions ||--o{ shipping_instruction_concepts : "desglosa_conceptos (1:N)"
+  quotations ||--o{ shipping_instructions : "convierte_en (0..1)"
+  shipping_instructions ||--o{ shipments : "transfiere_a (0..1)"
+
+  companies {
+    UUID id PK
+    VARCHAR_255 name
+    TIMESTAMPTZ created_at
+  }
+
+  profiles {
+    UUID id PK
+    VARCHAR_120 email UK
+    VARCHAR_80 nickname
+    BOOLEAN is_internal
+    UUID company_id FK
+    VARCHAR_20 status
+    TIMESTAMPTZ created_at
+  }
+
+  company_shipment {
+    UUID company_id PK_FK
+    UUID shipment_id PK_FK
+  }
+
+  shipments {
+    UUID id PK
+    VARCHAR_50 do_number UK
+    VARCHAR_100 origin
+    VARCHAR_100 destination
+    VARCHAR_20 shipment_type
+    VARCHAR_50 current_status
+    VARCHAR_20 incoterm
+    DATE etd
+    DATE eta
+    TIMESTAMPTZ atd
+    TIMESTAMPTZ ata
+    INT free_days
+    VARCHAR_100 carrier
+    VARCHAR_50 container_number
+    VARCHAR_150 exporter
+    VARCHAR_150 consignee
+    VARCHAR_20 status
+    UUID created_by FK
+    TIMESTAMPTZ created_at
+  }
+
+  shipment_updates {
+    UUID id PK
+    UUID shipment_id FK
+    VARCHAR_50 status
+    TEXT observation
+    VARCHAR_150 location
+    TEXT media_url
+    UUID updated_by FK
+    TIMESTAMPTZ created_at
+  }
+
+  documents {
+    UUID id PK
+    UUID shipment_id FK
+    VARCHAR_255 file_name
+    BIGINT file_size
+    VARCHAR_255 storage_path
+    UUID created_by FK
+    TIMESTAMPTZ created_at
+  }
+
+  third_parties {
+    UUID id PK
+    VARCHAR_20 tipo_persona
+    VARCHAR_20 tipo_id
+    VARCHAR_30 identificacion
+    VARCHAR_5 dv
+    VARCHAR_200 razon_social
+    VARCHAR_100 direccion
+    VARCHAR_30 telefono
+    VARCHAR_80 ciudad
+    VARCHAR_150 correo_fe
+    INT dias_credito
+    BOOLEAN es_cliente
+    BOOLEAN es_proveedor
+    TIMESTAMPTZ created_at
+  }
+
+  billing_concepts {
+    UUID id PK
+    VARCHAR_50 codigo UK
+    VARCHAR_150 nombre
+    BOOLEAN aplica_iva
+    NUMERIC porcentaje_iva
+    VARCHAR_10 moneda_default
+    NUMERIC valor_sugerido
+    VARCHAR_50 categoria
+  }
+
+  quotations {
+    UUID id PK
+    VARCHAR_50 consecutivo UK
+    DATE fecha
+    DATE validez
+    VARCHAR_120 vendedor
+    UUID tercero_id FK
+    VARCHAR_200 cliente_nombre
+    NUMERIC subtotal
+    NUMERIC total_iva
+    NUMERIC total
+    VARCHAR_10 moneda
+    VARCHAR_20 estado
+  }
+
+  quotation_items {
+    UUID id PK
+    UUID quotation_id FK
+    INT orden
+    NUMERIC cantidad
+    VARCHAR_150 concepto
+    NUMERIC valor_unitario
+    NUMERIC subtotal
+    NUMERIC iva
+    NUMERIC total
+  }
+
+  shipping_instructions {
+    VARCHAR_80 id PK
+    VARCHAR_20 estado
+    VARCHAR_50 do_number
+    DATE fecha_creacion
+    VARCHAR_120 comercial
+    VARCHAR_200 cliente
+    VARCHAR_20 incoterm
+    VARCHAR_100 ruta
+    VARCHAR_20 via
+    TEXT comentarios
+  }
+
+  shipping_instruction_concepts {
+    VARCHAR_80 id PK
+    VARCHAR_80 instruction_id FK
+    INT orden
+    VARCHAR_150 concepto
+    INT vendido
+    VARCHAR_150 proveedor
+    VARCHAR_50 costo
+    VARCHAR_10 moneda_costo
+    VARCHAR_50 venta
+    VARCHAR_10 moneda_venta
+  }</pre>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DIAGRAMA 5: DIAGRAMA DE CLASES UML
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="clases-uml">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">DIAGRAMA 05</span>
+          <h2>Diagrama de Clases UML del Dominio</h2>
+          <p class="desc">
+            Modelado orientado a objetos de los tipos TypeScript y entidades de negocio del ERP, reflejando métodos auxiliares 
+            (cálculo de Dígito DIAN, verificación de alertas ETA, exportación a ExcelJS y cálculo de totales).
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-viewport">
+        <div class="mermaid" id="mermaid-05">
+classDiagram
+  direction TB
+
+  class Company {
+    +UUID id
+    +String name
+    +DateTime createdAt
+    +getAssignedShipments() List~Shipment~
+  }
+
+  class UserProfile {
+    +UUID id
+    +String email
+    +String nickname
+    +Boolean isInternal
+    +UUID companyId
+    +hasInternalAccess() Boolean
+  }
+
+  class Shipment {
+    +UUID id
+    +String doNumber
+    +String origin
+    +String destination
+    +String currentStatus
+    +Date etd
+    +Date eta
+    +Integer freeDays
+    +inferOperationType() String
+    +isEtaOverdue() Boolean
+    +calculateFreeDaysRemaining() FreeDaysResult
+  }
+
+  class ShipmentUpdate {
+    +UUID id
+    +UUID shipmentId
+    +String status
+    +String observation
+    +String location
+    +DateTime createdAt
+  }
+
+  class DocumentRecord {
+    +UUID id
+    +UUID shipmentId
+    +String fileName
+    +String storagePath
+    +getDownloadUrl() String
+  }
+
+  class ThirdParty {
+    +UUID id
+    +String identificacion
+    +String dv
+    +String razonSocial
+    +calculateDianDv() String
+  }
+
+  class Quotation {
+    +UUID id
+    +String consecutivo
+    +Decimal total
+    +QuotationStatus estado
+    +calculateTotals() Void
+    +generateShippingInstruction() ShippingInstruction
+  }
+
+  class ShippingInstruction {
+    +String id
+    +String doNumber
+    +String cliente
+    +exportToExcel() Promise~Blob~
+    +generateShipment() Shipment
+  }
+
+  Company "1" --> "0..*" UserProfile : emplea
+  Company "1" --> "0..*" Shipment : rastrea
+  Shipment "1" *-- "0..*" ShipmentUpdate : historial
+  Shipment "1" *-- "0..*" DocumentRecord : archivos
+  UserProfile "1" --> "0..*" Shipment : administra
+  ThirdParty "1" --> "0..*" Quotation : factura_a
+  Quotation "0..1" --> "0..1" ShippingInstruction : genera
+  ShippingInstruction "0..1" --> "0..1" Shipment : apertura_trafico
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">📄 Código Fuente Mermaid Editable</span>
+          <button class="copy-btn" onclick="copyCode('src-05')">⎘ Copiar Código Mermaid</button>
+        </div>
+        <pre class="source-code" id="src-05">classDiagram
+  direction TB
+
+  class Company {
+    +UUID id
+    +String name
+    +DateTime createdAt
+    +getAssignedShipments() List~Shipment~
+  }
+
+  class UserProfile {
+    +UUID id
+    +String email
+    +String nickname
+    +Boolean isInternal
+    +UUID companyId
+    +hasInternalAccess() Boolean
+  }
+
+  class Shipment {
+    +UUID id
+    +String doNumber
+    +String origin
+    +String destination
+    +String currentStatus
+    +Date etd
+    +Date eta
+    +Integer freeDays
+    +inferOperationType() String
+    +isEtaOverdue() Boolean
+    +calculateFreeDaysRemaining() FreeDaysResult
+  }
+
+  class ShipmentUpdate {
+    +UUID id
+    +UUID shipmentId
+    +String status
+    +String observation
+    +String location
+    +DateTime createdAt
+  }
+
+  class DocumentRecord {
+    +UUID id
+    +UUID shipmentId
+    +String fileName
+    +String storagePath
+    +getDownloadUrl() String
+  }
+
+  class ThirdParty {
+    +UUID id
+    +String identificacion
+    +String dv
+    +String razonSocial
+    +calculateDianDv() String
+  }
+
+  class Quotation {
+    +UUID id
+    +String consecutivo
+    +Decimal total
+    +QuotationStatus estado
+    +calculateTotals() Void
+    +generateShippingInstruction() ShippingInstruction
+  }
+
+  class ShippingInstruction {
+    +String id
+    +String doNumber
+    +String cliente
+    +exportToExcel() Promise~Blob~
+    +generateShipment() Shipment
+  }
+
+  Company "1" --> "0..*" UserProfile : emplea
+  Company "1" --> "0..*" Shipment : rastrea
+  Shipment "1" *-- "0..*" ShipmentUpdate : historial
+  Shipment "1" *-- "0..*" DocumentRecord : archivos
+  UserProfile "1" --> "0..*" Shipment : administra
+  ThirdParty "1" --> "0..*" Quotation : factura_a
+  Quotation "0..1" --> "0..1" ShippingInstruction : genera
+  ShippingInstruction "0..1" --> "0..1" Shipment : apertura_trafico</pre>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         DIAGRAMA 6: MÁQUINA DE ESTADOS Y CICLOS DE VIDA
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="estados-trafico">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">DIAGRAMA 06</span>
+          <h2>Máquina de Estados de Tráfico Logístico (EXPO & IMPO)</h2>
+          <p class="desc">
+            Autómata de transiciones de estado para operaciones de Exportación (7 hitos operativos) e Importación (7 hitos aduaneros/puerto), 
+            conectado con la emisión de eventos Realtime hacia el portal de clientes.
+          </p>
+        </div>
+      </div>
+
+      <div class="mermaid-viewport">
+        <div class="mermaid" id="mermaid-06">
+stateDiagram-v2
+  [*] --> PIPELINE_COMERCIAL : Apertura Comercial
+
+  state PIPELINE_COMERCIAL {
+    [*] --> Cotizacion_Borrador : Redacción de Oferta
+    Cotizacion_Borrador --> Cotizacion_Enviada : Envío al Cliente
+    Cotizacion_Enviada --> Cotizacion_Rechazada : Tarifa declinada
+    Cotizacion_Enviada --> Cotizacion_Aprobada : Aceptación de Oferta
+    Cotizacion_Aprobada --> Instruccion_Borrador : 1-Clic Generar Instrucción
+    Instruccion_Borrador --> Instruccion_Finalizada : Validación de Costos
+    Instruccion_Finalizada --> [*] : Lista para Tráfico
+  }
+
+  PIPELINE_COMERCIAL --> bifurcacion : 1-Clic Abrir en Tráfico
+
+  state bifurcacion <<choice>>
+  bifurcacion --> CICLO_EXPO : Prefijo DO EXP / EXPO
+  bifurcacion --> CICLO_IMPO : Prefijo DO IMP / IMPO
+
+  state CICLO_EXPO {
+    [*] --> expo_start_operation : 1. Radicación DO
+    expo_start_operation --> expo_booking_confirmation : 2. Booking Asignado
+    expo_booking_confirmation --> expo_vehicle : 3. Retiro Contenedor
+    expo_vehicle --> expo_documentation : 4. Cutoff Documental
+    expo_documentation --> expo_departure : 5. Zarpe / Despegue
+    expo_departure --> expo_international_transit : 6. Tránsito Internacional
+    expo_international_transit --> expo_arrival_confirmation : 7. Arribo a Destino
+    expo_arrival_confirmation --> [*]
+  }
+
+  state CICLO_IMPO {
+    [*] --> impo_start_operation : 1. Aviso de Embarque
+    impo_start_operation --> impo_booking_confirmation : 2. Booking / Master
+    impo_booking_confirmation --> impo_departure : 3. Zarpe en Origen
+    impo_departure --> impo_international_transit : 4. En Tránsito a Colombia
+    impo_international_transit --> impo_arrival_confirmation : 5. Arribo a Puerto
+    impo_arrival_confirmation --> impo_customs_clearance : 6. Nacionalización DIAN
+    impo_customs_clearance --> impo_final_delivery : 7. Entrega en Bodega
+    impo_final_delivery --> [*]
+  }
+
+  CICLO_EXPO --> PORTAL_SYNC : Inserción en shipment_updates
+  CICLO_IMPO --> PORTAL_SYNC : Inserción en shipment_updates
+
+  state PORTAL_SYNC {
+    [*] --> WebSocket_Broadcast : Supabase Realtime
+    WebSocket_Broadcast --> Actualizacion_Timeline_Cliente
+    Actualizacion_Timeline_Cliente --> [*]
+  }
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">📄 Código Fuente Mermaid Editable</span>
+          <button class="copy-btn" onclick="copyCode('src-06')">⎘ Copiar Código Mermaid</button>
+        </div>
+        <pre class="source-code" id="src-06">stateDiagram-v2
+  [*] --> PIPELINE_COMERCIAL : Apertura Comercial
+
+  state PIPELINE_COMERCIAL {
+    [*] --> Cotizacion_Borrador : Redacción de Oferta
+    Cotizacion_Borrador --> Cotizacion_Enviada : Envío al Cliente
+    Cotizacion_Enviada --> Cotizacion_Rechazada : Tarifa declinada
+    Cotizacion_Enviada --> Cotizacion_Aprobada : Aceptación de Oferta
+    Cotizacion_Aprobada --> Instruccion_Borrador : 1-Clic Generar Instrucción
+    Instruccion_Borrador --> Instruccion_Finalizada : Validación de Costos
+    Instruccion_Finalizada --> [*] : Lista para Tráfico
+  }
+
+  PIPELINE_COMERCIAL --> bifurcacion : 1-Clic Abrir en Tráfico
+
+  state bifurcacion <<choice>>
+  bifurcacion --> CICLO_EXPO : Prefijo DO EXP / EXPO
+  bifurcacion --> CICLO_IMPO : Prefijo DO IMP / IMPO
+
+  state CICLO_EXPO {
+    [*] --> expo_start_operation : 1. Radicación DO
+    expo_start_operation --> expo_booking_confirmation : 2. Booking Asignado
+    expo_booking_confirmation --> expo_vehicle : 3. Retiro Contenedor
+    expo_vehicle --> expo_documentation : 4. Cutoff Documental
+    expo_documentation --> expo_departure : 5. Zarpe / Despegue
+    expo_departure --> expo_international_transit : 6. Tránsito Internacional
+    expo_international_transit --> expo_arrival_confirmation : 7. Arribo a Destino
+    expo_arrival_confirmation --> [*]
+  }
+
+  state CICLO_IMPO {
+    [*] --> impo_start_operation : 1. Aviso de Embarque
+    impo_start_operation --> impo_booking_confirmation : 2. Booking / Master
+    impo_booking_confirmation --> impo_departure : 3. Zarpe en Origen
+    impo_departure --> impo_international_transit : 4. En Tránsito a Colombia
+    impo_international_transit --> impo_arrival_confirmation : 5. Arribo a Puerto
+    impo_arrival_confirmation --> impo_customs_clearance : 6. Nacionalización DIAN
+    impo_customs_clearance --> impo_final_delivery : 7. Entrega en Bodega
+    impo_final_delivery --> [*]
+  }
+
+  CICLO_EXPO --> PORTAL_SYNC : Inserción en shipment_updates
+  CICLO_IMPO --> PORTAL_SYNC : Inserción en shipment_updates
+
+  state PORTAL_SYNC {
+    [*] --> WebSocket_Broadcast : Supabase Realtime
+    WebSocket_Broadcast --> Actualizacion_Timeline_Cliente
+    Actualizacion_Timeline_Cliente --> [*]
+  }</pre>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         MATRIZ DE ACCESO RBAC & RLS
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="rbac">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">SEGURIDAD & ROLES</span>
+          <h2>Matriz de Control de Acceso por Rol (RBAC & RLS)</h2>
+          <p class="desc">
+            Políticas de autorización aplicadas tanto en la interfaz React como en el motor de base de datos PostgreSQL mediante Row Level Security.
+          </p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rol / Identidad</th>
+              <th>Módulo / Entidad</th>
+              <th>Ver (SELECT)</th>
+              <th>Crear (INSERT)</th>
+              <th>Editar (UPDATE)</th>
+              <th>Eliminar (DELETE)</th>
+              <th>Restricción de Alcance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="status-badge badge-orange">Operador / Admin ERP</span></td>
+              <td><strong>shipments</strong> (Tráfico)</td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td>Acceso global a todos los expedientes de la compañía</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-orange">Operador / Admin ERP</span></td>
+              <td><strong>shipment_updates</strong></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td>Registra novedades y eventos de trazabilidad</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-orange">Operador / Admin ERP</span></td>
+              <td><strong>quotations & instructions</strong></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td><span class="status-badge badge-green">✔ Total</span></td>
+              <td>Gestión comercial y operativa Practiko</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-blue">Cliente Portal Tracking</span></td>
+              <td><strong>shipments</strong></td>
+              <td><span class="status-badge badge-green">✔ Asignadas</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td>Filtrado estricto por relación <code>company_shipment</code></td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-blue">Cliente Portal Tracking</span></td>
+              <td><strong>documents</strong></td>
+              <td><span class="status-badge badge-green">✔ Descarga</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td>Descarga de BL, Facturas y Packing List asociados</td>
+            </tr>
+            <tr>
+              <td><span class="status-badge badge-blue">Cliente Portal Tracking</span></td>
+              <td><strong>Módulos Comerciales</strong></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td><span class="status-badge badge-red">✗ Denegado</span></td>
+              <td>Acceso restringido fuera del portal interno del ERP</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <!-- ══════════════════════════════════════════════════════════
+         SCRIPT DDL POSTGRESQL SUPABASE
+    ═══════════════════════════════════════════════════════════ -->
+    <article class="diagram-card" id="ddl">
+      <div class="diagram-card-header">
+        <div>
+          <span class="diagram-pill">SCRIPT DDL FINAL</span>
+          <h2>Script DDL de PostgreSQL — Esquema Supabase 15</h2>
+          <p class="desc">
+            Definición de tablas, llaves foráneas, índices de alta velocidad y políticas Row Level Security (RLS) 
+            ejecutables en el <strong>SQL Editor</strong> de Supabase.
+          </p>
+        </div>
+      </div>
+
+      <div class="source-panel">
+        <div class="source-header">
+          <span class="source-title">💾 Script SQL DDL Completo</span>
+          <button class="copy-btn" onclick="copyCode('sql-script')">⎘ Copiar Script SQL</button>
+        </div>
+        <pre class="source-code" id="sql-script">-- ═══════════════════════════════════════════════════════════════════
+-- INGELOX ERP & TRACKING SYSTEM — SCHEMA DDL POSTGRESQL 15
+-- Compatibilidad Completa con Producción y Módulos Comerciales
+-- ═══════════════════════════════════════════════════════════════════
+
+-- 1. TABLA: companies (Portal de Tracking en Producción)
+CREATE TABLE IF NOT EXISTS public.companies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. TABLA: profiles (Extensión de Auth Users)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email VARCHAR(120) NOT NULL UNIQUE,
+  nickname VARCHAR(80),
+  is_internal BOOLEAN NOT NULL DEFAULT FALSE,
+  company_id UUID REFERENCES public.companies(id) ON DELETE SET NULL,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. TABLA: shipments (Expedientes de Tráfico DO)
+CREATE TABLE IF NOT EXISTS public.shipments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  do_number VARCHAR(50) NOT NULL UNIQUE,
+  origin VARCHAR(100) NOT NULL,
+  destination VARCHAR(100) NOT NULL,
+  shipment_type VARCHAR(20) DEFAULT 'maritime',
+  current_status VARCHAR(50) NOT NULL DEFAULT 'expo_start_operation',
+  incoterm VARCHAR(20),
+  etd DATE,
+  eta DATE,
+  atd TIMESTAMPTZ,
+  ata TIMESTAMPTZ,
+  documentary_cutoff TIMESTAMPTZ,
+  booking_status VARCHAR(30) DEFAULT 'confirmed',
+  inspection_status VARCHAR(30) DEFAULT 'none',
+  cargo_type VARCHAR(50) DEFAULT 'general',
+  free_days INTEGER,
+  carrier VARCHAR(100),
+  flight_vessel VARCHAR(100),
+  air_waybill VARCHAR(50),
+  container_number VARCHAR(50),
+  exporter VARCHAR(150),
+  consignee VARCHAR(150),
+  status VARCHAR(20) DEFAULT 'active',
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. TABLA: company_shipment (Asociación N:M Portal Tracking)
+CREATE TABLE IF NOT EXISTS public.company_shipment (
+  company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+  shipment_id UUID NOT NULL REFERENCES public.shipments(id) ON DELETE CASCADE,
+  PRIMARY KEY (company_id, shipment_id)
+);
+
+-- 5. TABLA: shipment_updates (Historial Inmutable de Novedades)
+CREATE TABLE IF NOT EXISTS public.shipment_updates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shipment_id UUID NOT NULL REFERENCES public.shipments(id) ON DELETE CASCADE,
+  status VARCHAR(50) NOT NULL,
+  observation TEXT,
+  description TEXT,
+  location VARCHAR(150),
+  media_url TEXT,
+  event_type VARCHAR(50) DEFAULT 'status_update',
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. TABLA: documents (Soportes Documentales)
+CREATE TABLE IF NOT EXISTS public.documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shipment_id UUID NOT NULL REFERENCES public.shipments(id) ON DELETE CASCADE,
+  file_name VARCHAR(255) NOT NULL,
+  file_size BIGINT,
+  file_path VARCHAR(255),
+  storage_path VARCHAR(255),
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. TABLAS COMERCIALES: Practiko ERP
+CREATE TABLE IF NOT EXISTS public.third_parties (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo_persona VARCHAR(20) NOT NULL CHECK (tipo_persona IN ('juridica', 'natural')),
+  tipo_id VARCHAR(20) NOT NULL DEFAULT 'NIT',
+  identificacion VARCHAR(30) NOT NULL,
+  dv VARCHAR(5),
+  razon_social VARCHAR(200) NOT NULL,
+  direccion VARCHAR(100),
+  telefono VARCHAR(30),
+  pais VARCHAR(50) DEFAULT 'Colombia',
+  ciudad VARCHAR(80) DEFAULT 'Bogotá D.C.',
+  correo_fe VARCHAR(150),
+  vendedor VARCHAR(120),
+  dias_credito INTEGER DEFAULT 0,
+  es_cliente BOOLEAN DEFAULT TRUE,
+  es_proveedor BOOLEAN DEFAULT FALSE,
+  status VARCHAR(20) DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.billing_concepts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  codigo VARCHAR(50) UNIQUE NOT NULL,
+  nombre VARCHAR(150) NOT NULL,
+  aplica_iva BOOLEAN DEFAULT FALSE,
+  porcentaje_iva NUMERIC DEFAULT 0,
+  moneda_default VARCHAR(10) DEFAULT 'USD',
+  valor_sugerido NUMERIC DEFAULT 0,
+  categoria VARCHAR(50) DEFAULT 'Flete',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.quotations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  consecutivo VARCHAR(50) UNIQUE NOT NULL,
+  fecha DATE DEFAULT CURRENT_DATE,
+  validez DATE,
+  forma_pago VARCHAR(50) DEFAULT 'A 30 DIAS',
+  vendedor VARCHAR(120),
+  tercero_id UUID REFERENCES public.third_parties(id) ON DELETE SET NULL,
+  cliente_nombre VARCHAR(200) NOT NULL,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  total_iva NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  moneda VARCHAR(10) DEFAULT 'USD',
+  estado VARCHAR(20) DEFAULT 'enviada',
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.quotation_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  quotation_id UUID NOT NULL REFERENCES public.quotations(id) ON DELETE CASCADE,
+  orden INTEGER NOT NULL DEFAULT 1,
+  cantidad NUMERIC NOT NULL DEFAULT 1,
+  concepto VARCHAR(150) NOT NULL,
+  valor_unitario NUMERIC NOT NULL DEFAULT 0,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  iva NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0
+);
+
+-- ÍNDICES DE VELOCIDAD
+CREATE INDEX IF NOT EXISTS idx_shipments_do ON public.shipments(do_number);
+CREATE INDEX IF NOT EXISTS idx_shipments_status ON public.shipments(current_status);
+CREATE INDEX IF NOT EXISTS idx_updates_shipment ON public.shipment_updates(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_comp_shipment ON public.company_shipment(company_id, shipment_id);</pre>
+      </div>
+    </article>
+
+  </main>
+
+  <div id="toast">¡Código copiado al portapapeles!</div>
+
+  <footer>
+    <p><strong>INGELOX LOGISTICS ERP & TRACKING SYSTEM</strong> · Arquitectura de Software & Especificación UML 2026</p>
+    <p style="margin-top: 0.35rem; color: #475569;">Documentación interactiva con diagramas editables compatibles con Mermaid.js, Draw.io y GitHub Markdown.</p>
+  </footer>
+
+  <script>
+    function copyCode(elementId) {
+      const codeEl = document.getElementById(elementId);
+      if (!codeEl) return;
+      const text = codeEl.innerText || codeEl.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('¡Código copiado al portapapeles!');
+      }).catch(err => {
+        console.error('Error al copiar:', err);
+      });
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+  </script>
+</body>
+</html>

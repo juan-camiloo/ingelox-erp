@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { UserProfile } from '../types/shipment';
@@ -24,28 +24,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [accessDeniedError, setAccessDeniedError] = useState<string | null>(null);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, nickname, is_internal, company_id, status, created_at')
-        .eq('id', userId)
-        .single();
+  const profilePromiseRef = useRef<Promise<UserProfile | null> | null>(null);
+  const fetchingUserIdRef = useRef<string | null>(null);
 
-      if (error) {
-        console.error('Error fetching profile in ERP:', error);
-        return null;
-      }
-      return data as UserProfile;
-    } catch (err) {
-      console.error('Error in fetchProfile:', err);
-      return null;
+  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
+    // Si ya existe una consulta HTTP en curso para este mismo usuario, reutilizar la misma promesa
+    // para evitar peticiones duplicadas a la red.
+    if (fetchingUserIdRef.current === userId && profilePromiseRef.current) {
+      return profilePromiseRef.current;
     }
+
+    fetchingUserIdRef.current = userId;
+    const fetchPromise = (async () => {
+      try {
+        // Se seleccionan únicamente los campos indispensables para el ERP (email, nickname, is_internal, status).
+        // Se excluyen deliberadamente 'id' y 'company_id' de la consulta a la API de Supabase para evitar
+        // que estos identificadores se transmitan o filtren en las respuestas HTTP visibles en la red.
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('email, nickname, is_internal, status')
+          .eq('id', userId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile in ERP:', error);
+          return null;
+        }
+
+        // El 'id' se asocia en memoria local a partir del ID verificado de la sesión de autenticación (auth.uid()),
+        // garantizando compatibilidad total con auditorías (updated_by, created_by) sin exponerlo en la respuesta HTTP.
+        return {
+          ...(data as Omit<UserProfile, 'id'>),
+          id: userId,
+        } as UserProfile;
+      } catch (err) {
+        console.error('Error in fetchProfile:', err);
+        return null;
+      } finally {
+        profilePromiseRef.current = null;
+        fetchingUserIdRef.current = null;
+      }
+    })();
+
+    profilePromiseRef.current = fetchPromise;
+    return fetchPromise;
   };
 
   const handleUserSession = async (currentSession: Session | null, isInitial = false) => {
-    // Activar loader solo en carga inicial o cuando llega una sesión activa a validar
-    if (isInitial || currentSession) {
+    // Solo activar loader en carga inicial si aún no tenemos perfil ni sesión
+    if (isInitial && !profile) {
       setLoading(true);
     }
     setAccessDeniedError(null);
@@ -59,10 +86,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const currentUser = currentSession.user;
+
+    // Si ya tenemos el perfil de este usuario en memoria, actualizamos la sesión sin reconsultar
+    if (profile && profile.id === currentUser.id && user?.id === currentUser.id) {
+      setSession(currentSession);
+      setLoading(false);
+      return;
+    }
+
     const currentProfile = await fetchProfile(currentUser.id);
 
     if (!currentProfile) {
-      console.error('Perfil no encontrado para usuario:', currentUser.id);
+      console.error('Perfil no encontrado para la cuenta autenticada.');
       await supabase.auth.signOut();
       setSession(null);
       setUser(null);

@@ -168,12 +168,12 @@ export const INSPECTION_STATUSES = [
 export function inferShipmentOperationType(doNumber?: string | null): ShipmentOperationType | null {
   const normalized = doNumber?.trim().toUpperCase();
   if (!normalized) return null;
-  if (normalized.startsWith('X') || normalized.startsWith('EXP')) return 'expo';
-  if (normalized.startsWith('M') || normalized.startsWith('IMP')) return 'impo';
+  if (normalized.startsWith('X') || normalized.startsWith('EXP') || normalized.includes('EXP')) return 'expo';
+  if (normalized.startsWith('M') || normalized.startsWith('IMP') || normalized.includes('IMP')) return 'impo';
   return null;
 }
 
 export function getShipmentStatusLabel(status?: string | null): string {
   if (!status) return 'Sin Estado';
-  return STATUS_LABELS[status] || status;
+  return STATUS_LABELS[status] || (status.charAt(0).toUpperCase() + status.slice(1));
 }

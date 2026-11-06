@@ -4,6 +4,7 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -21,9 +22,23 @@ export default {
           orange: '#F35815',
           DEFAULT: '#F35815',
         },
+        navy: {
+          50:  '#eef2f8',
+          100: '#d5dff0',
+          200: '#abbfe0',
+          300: '#7d9ecf',
+          400: '#4f7dbf',
+          500: '#2d5c9e',
+          600: '#234a80',
+          700: '#1a3a63',
+          800: '#122947',
+          900: '#0a1a2e',
+          DEFAULT: '#1a3a63',
+        },
       },
     },
   },
   plugins: [],
 }
+
 

@@ -73,7 +73,7 @@ async function main() {
     const { error } = await supabase.from('shipping_instructions').select('count').limit(1);
     if (error) {
       console.log('Nota: Las tablas aún no están creadas en Supabase.');
-      console.log(`Ejecuta primero el archivo supabase/migrations/practiko_and_instructions.sql en el SQL Editor de Supabase y luego este script.`);
+      console.log(`Ejecuta primero el archivo supabase/migrations/commercial_and_instructions.sql en el SQL Editor de Supabase y luego este script.`);
     } else {
       console.log('Conexión con Supabase verificada exitosamente.');
     }

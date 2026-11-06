@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   PackageCheck,
-  Lock,
   Mail,
   AlertTriangle,
   ArrowRight,
-  ShieldCheck,
   Loader2,
   KeyRound,
   CheckCircle2,
@@ -20,7 +18,6 @@ const LOGIN_DRAFT_KEY = 'ingelox_login_draft';
 interface LoginDraft {
   email: string;
   step: 'email' | 'code';
-  authMethod: 'otp' | 'password';
   infoMessage?: string | null;
 }
 
@@ -36,9 +33,7 @@ function getStoredLoginDraft(): LoginDraft | null {
 
 export const LoginPage: React.FC = () => {
   const storedDraft = getStoredLoginDraft();
-  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>(storedDraft?.authMethod || 'otp');
   const [email, setEmail] = useState(storedDraft?.email || '');
-  const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [step, setStep] = useState<'email' | 'code'>(storedDraft?.step || 'email');
   const [loading, setLoading] = useState(false);
@@ -73,14 +68,13 @@ export const LoginPage: React.FC = () => {
         JSON.stringify({
           email,
           step,
-          authMethod,
           infoMessage: step === 'code' ? infoMessage : null,
         })
       );
     } catch {
       // Ignorar fallos de cuota o cookies bloqueadas
     }
-  }, [email, step, authMethod, infoMessage]);
+  }, [email, step, infoMessage]);
 
   const handleChangeEmail = () => {
     setStep('email');
@@ -90,14 +84,14 @@ export const LoginPage: React.FC = () => {
     try {
       sessionStorage.setItem(
         LOGIN_DRAFT_KEY,
-        JSON.stringify({ email, step: 'email', authMethod })
+        JSON.stringify({ email, step: 'email' })
       );
     } catch {
       // Ignorar
     }
   };
 
-  // 1. Enviar código OTP al correo
+  // 1. Validar permisos y enviar código OTP al correo
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -112,16 +106,77 @@ export const LoginPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: { shouldCreateUser: false },
+
+      // A. Validación de rol antes de solicitar el código OTP:
+      // Se verifica mediante RPC (con SECURITY DEFINER) para que un usuario no autenticado
+      // pueda comprobar si el correo corresponde a un administrador/operador interno activo.
+      const { data: isAdmin, error: rpcError } = await supabase.rpc('check_user_is_admin', {
+        lookup_email: cleanEmail,
       });
 
-      if (error) {
-        if (error.message.includes('Signups not allowed for otp') || error.message.includes('User not found')) {
-          throw new Error('El correo ingresado no está registrado en el sistema.');
+      if (!rpcError && isAdmin === false) {
+        setErrorMessage('Acceso denegado: El correo no está registrado o no cuenta con permisos de administrador en Ingelox ERP.');
+        setLoading(false);
+        return;
+      }
+
+      // Si la función RPC no existe aún (ej. antes de ejecutar la migración SQL), fallback con consulta directa
+      if (rpcError) {
+        console.warn('RPC check_user_is_admin no disponible, ejecutando verificación preventiva:', rpcError);
+        const { data: directProfile } = await supabase
+          .from('profiles')
+          .select('is_internal, status')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+
+        if (directProfile && (!directProfile.is_internal || directProfile.status === 'inactive')) {
+          setErrorMessage('Acceso denegado: El usuario no cuenta con permisos de administrador en Ingelox ERP.');
+          setLoading(false);
+          return;
         }
-        throw error;
+      }
+
+      // B. Si cuenta con permisos, solicitar el código OTP por correo
+      // Usamos la Edge Function dedicada 'send-otp-erp' para enviar el correo corporativo de Ingelox ERP
+      let sentViaFunction = false;
+      try {
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('send-otp-erp', {
+          body: { email: cleanEmail },
+        });
+
+        if (!fnError && (fnData as any)?.success) {
+          sentViaFunction = true;
+        } else if (fnError) {
+          let detailedMsg = fnError.message;
+          if ((fnError as any).context && typeof (fnError as any).context.json === 'function') {
+            try {
+              const body = await (fnError as any).context.json();
+              if (body?.error) detailedMsg = body.error;
+            } catch {}
+          }
+          if (detailedMsg && !detailedMsg.includes('Failed to send') && !detailedMsg.includes('Not Found') && !detailedMsg.includes('404')) {
+            throw new Error(detailedMsg);
+          }
+        }
+      } catch (err: any) {
+        if (err.message && (err.message.includes('Acceso denegado') || err.message.includes('El correo'))) {
+          throw err;
+        }
+        console.warn('Edge Function send-otp-erp no disponible, usando signInWithOtp directo:', err);
+      }
+
+      if (!sentViaFunction) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: cleanEmail,
+          options: { shouldCreateUser: false },
+        });
+
+        if (error) {
+          if (error.message.includes('Signups not allowed for otp') || error.message.includes('User not found')) {
+            throw new Error('El correo ingresado no está registrado en el sistema.');
+          }
+          throw error;
+        }
       }
 
       setInfoMessage(`Se ha enviado un código de acceso de 6 dígitos a ${cleanEmail}. Revisa tu bandeja de entrada o spam.`);
@@ -171,184 +226,114 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  // 3. Inicio con contraseña
-  const handlePasswordLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
-    clearAccessDenied();
-
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !password) {
-      setErrorMessage('Por favor ingresa correo y contraseña.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (error) {
-        throw error;
-      }
-      // Al resolverse el perfil en AuthContext, el useEffect redirigirá si es interno.
-    } catch (err: any) {
-      console.error('Error signing in with password:', err);
-      let msg = err.message || 'Error al iniciar sesión';
-      if (msg.includes('Invalid login credentials')) {
-        msg = 'Credenciales inválidas. Verifica tu correo y contraseña, o ingresa con código al correo.';
-      }
-      setErrorMessage(msg);
-      setLoading(false);
-    }
-  };
-
   const activeError = errorMessage || accessDeniedError;
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
-      {/* Background Ambience */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-orange/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-blue-600/5 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen w-full flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans"
+         style={{ backgroundColor: 'var(--sidebar-bg)' }}>
 
-      {/* Main Card */}
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-8 shadow-2xl backdrop-blur-xl relative z-10">
-        {/* Brand Header */}
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-orange to-orange-500 flex items-center justify-center shadow-xl shadow-brand-orange/25 mb-4">
-            <PackageCheck className="w-8 h-8 text-white" />
+      {/* Ambient glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
+             style={{ background: 'radial-gradient(circle, rgba(243,88,21,0.12) 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full"
+             style={{ background: 'radial-gradient(circle, rgba(77,143,196,0.08) 0%, transparent 70%)' }} />
+      </div>
+
+      {/* Login card */}
+      <div className="w-full max-w-[400px] relative z-10 rounded-2xl overflow-hidden"
+           style={{ backgroundColor: 'var(--surface-base)', border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-overlay)' }}>
+
+        {/* Header — franja navy de la marca */}
+        <div className="px-8 py-6 flex flex-col items-center text-center"
+             style={{ backgroundColor: 'var(--sidebar-bg-deeper)', borderBottom: '1px solid var(--sidebar-border)' }}>
+          <div className="w-12 h-12 rounded-2xl mb-4 flex items-center justify-center"
+               style={{ background: 'linear-gradient(135deg, #F35815, #c2410c)', boxShadow: '0 6px 20px rgba(243,88,21,0.4)' }}>
+            <PackageCheck className="w-7 h-7 text-white" />
           </div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl font-bold tracking-tight text-white">INGELOX ERP</h1>
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-orange/20 text-brand-orange border border-brand-orange/30">
+            <h1 className="text-lg font-bold tracking-tight text-white">INGELOX ERP</h1>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md text-orange-300"
+                  style={{ backgroundColor: 'rgba(243,88,21,0.2)', border: '1px solid rgba(243,88,21,0.35)' }}>
               OPERATIVO
             </span>
           </div>
-          <p className="text-xs text-slate-400">
-            Centro de trabajo y control de tráfico interno
+          <p className="text-[12px]" style={{ color: 'var(--nav-text)' }}>
+            Centro de trabajo exclusivo para colaboradores internos
           </p>
         </div>
 
-        {/* Security Badge Notice */}
-        <div className="mb-5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-          <div className="text-left text-xs text-slate-300">
-            <span className="font-semibold text-slate-200">Acceso Restringido:</span> Exclusivo para operadores y personal interno registrado de Ingelox.
-          </div>
-        </div>
+        {/* Body */}
+        <div className="px-8 py-7 space-y-5">
 
-        {/* Messages */}
-        {activeError && (
-          <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-3 text-rose-300 text-xs">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-            <div className="flex-1">{activeError}</div>
-          </div>
-        )}
 
-        {infoMessage && (
-          <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-3 text-emerald-300 text-xs">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
-            <div className="flex-1">{infoMessage}</div>
-          </div>
-        )}
+          {/* Error / Info */}
+          {activeError && (
+            <div className="flex items-start gap-3 rounded-xl p-3"
+                 style={{ backgroundColor: 'color-mix(in srgb, var(--color-danger) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)' }}>
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--color-danger)' }} />
+              <div className="text-[11px] leading-relaxed" style={{ color: 'var(--color-danger)' }}>{activeError}</div>
+            </div>
+          )}
+          {infoMessage && (
+            <div className="flex items-start gap-3 rounded-xl p-3"
+                 style={{ backgroundColor: 'color-mix(in srgb, var(--color-success) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-success) 30%, transparent)' }}>
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--color-success)' }} />
+              <div className="text-[11px] leading-relaxed" style={{ color: 'var(--color-success)' }}>{infoMessage}</div>
+            </div>
+          )}
 
-        {/* Method Selector Tabs */}
-        <div className="grid grid-cols-2 gap-2 mb-6 bg-slate-800/60 p-1 rounded-xl border border-slate-700/60 text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMethod('otp');
-              setStep('email');
-              setErrorMessage(null);
-            }}
-            className={`py-2 rounded-lg font-semibold transition-all ${
-              authMethod === 'otp'
-                ? 'bg-brand-orange text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Código al Correo (OTP)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMethod('password');
-              setErrorMessage(null);
-            }}
-            className={`py-2 rounded-lg font-semibold transition-all ${
-              authMethod === 'password'
-                ? 'bg-brand-orange text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Contraseña
-          </button>
-        </div>
-
-        {/* FORMS */}
-        {authMethod === 'otp' ? (
-          step === 'email' ? (
-            /* STEP 1: Enter email */
+          {/* OTP Authentication Flow */}
+          {step === 'email' ? (
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 text-left">
-                  Correo Corporativo Registrado
-                </label>
+                <label className="erp-label">Correo corporativo</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-disabled)' }} />
                   <input
                     type="email"
                     required
                     autoFocus
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu-correo@ingelox.com"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
+                    placeholder="tu@ingelox.com.co"
+                    className="erp-input pl-10 py-2.5 text-sm"
                   />
                 </div>
-                <span className="text-[11px] text-slate-400 mt-1.5 block text-left">
-                  Recibirás un código de 6 dígitos en tu bandeja de entrada.
-                </span>
+                <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                  Te enviaremos un código de acceso de 6 dígitos.
+                </p>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-2 py-3 px-4 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-orange/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
+              <button type="submit" disabled={loading} className="erp-btn-primary w-full py-2.5 text-sm">
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Enviando código...</span>
+                    <span>Verificando permisos...</span>
                   </>
                 ) : (
                   <>
-                    <span>Enviar Código de Acceso</span>
+                    <span>Solicitar Código OTP</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
           ) : (
-            /* STEP 2: Enter 6-digit OTP */
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300">
-                    Código de 6 dígitos
-                  </label>
+                  <label className="erp-label mb-0">Código de 6 dígitos</label>
                   <button
                     type="button"
                     onClick={handleChangeEmail}
-                    className="text-[11px] text-brand-orange hover:underline"
+                    className="text-[11px] font-semibold"
+                    style={{ color: 'var(--brand-orange-text)' }}
                   >
                     Cambiar correo
                   </button>
                 </div>
                 <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-disabled)' }} />
                   <input
                     type="text"
                     required
@@ -356,17 +341,12 @@ export const LoginPage: React.FC = () => {
                     maxLength={6}
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
-                    placeholder="123456"
-                    className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white font-mono tracking-widest text-center placeholder-slate-500 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
+                    placeholder="· · · · · ·"
+                    className="erp-input pl-10 py-2.5 text-sm font-mono tracking-[0.5em] text-center"
                   />
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-2 py-3 px-4 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-orange/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
+              <button type="submit" disabled={loading} className="erp-btn-primary w-full py-2.5 text-sm">
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -374,96 +354,41 @@ export const LoginPage: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <span>Validar e Ingresar</span>
+                    <span>Ingresar</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
-
-              <div className="text-center pt-2">
+              <div className="text-center">
                 <button
                   type="button"
                   onClick={handleSendOtp}
                   disabled={loading}
-                  className="text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1.5 mx-auto"
+                  className="text-xs inline-flex items-center gap-1.5 transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
                 >
                   <RefreshCw className="w-3 h-3" />
-                  <span>¿No recibiste el código? Reenviar</span>
+                  Reenviar código
                 </button>
               </div>
             </form>
-          )
-        ) : (
-          /* PASSWORD FORM */
-          <form onSubmit={handlePasswordLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 text-left">
-                Correo Corporativo
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="operaciones@ingelox.com"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
-                />
-              </div>
-            </div>
+          )}
+        </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 text-left">
-                Contraseña
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange transition-all"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full mt-2 py-3 px-4 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-orange/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        {/* Footer */}
+        <div className="px-8 pb-6 pt-4 text-center" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            ¿Cliente?{' '}
+            <a
+              href="https://como-va-mi-carga.ingelox.com.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold underline-offset-2 hover:underline"
+              style={{ color: 'var(--brand-orange-text)' }}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Verificando acceso...</span>
-                </>
-              ) : (
-                <>
-                  <span>Ingresar al Sistema</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* Customer Portal Link */}
-        <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-          <p className="text-xs text-slate-400">
-            ¿Eres cliente y deseas rastrear tu carga?
+              Portal de Seguimiento
+            </a>
           </p>
-          <a
-            href="https://como-va-mi-carga.netlify.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-brand-orange hover:text-orange-400 font-semibold mt-1 transition-colors"
-          >
-            Ir al Portal de Clientes
-            <ArrowRight className="w-3.5 h-3.5" />
-          </a>
         </div>
       </div>
     </div>

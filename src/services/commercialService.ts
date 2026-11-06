@@ -4,14 +4,14 @@ import type {
   BillingConcept,
   Quotation,
   ShippingInstruction,
-} from '../types/practiko';
+} from '../types/commercial';
 
 // Claves de almacenamiento local de respaldo
 const STORAGE_KEYS = {
-  thirdParties: 'ingelox_practiko_third_parties',
-  billingConcepts: 'ingelox_practiko_billing_concepts',
-  quotations: 'ingelox_practiko_quotations',
-  instructions: 'ingelox_practiko_instructions',
+  thirdParties: 'ingelox_third_parties',
+  billingConcepts: 'ingelox_billing_concepts',
+  quotations: 'ingelox_quotations',
+  instructions: 'ingelox_instructions',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,10 +87,27 @@ export const DEFAULT_THIRD_PARTIES: ThirdParty[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SERVICIO DE TERCEROS (Practiko)
+// SERVICIO DE TERCEROS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PractikoThirdPartyService = {
+// Helper para verificar UUID válido
+const isValidUuid = (val?: string | null): boolean => {
+  if (!val) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+};
+
+const generateUuid = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+export const ThirdPartyService = {
   async getThirdParties(): Promise<ThirdParty[]> {
     try {
       // 1. Intentar desde Supabase
@@ -100,7 +117,13 @@ export const PractikoThirdPartyService = {
         .order('razon_social', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        return data as ThirdParty[];
+        const mapped = data.map((item: any) => ({
+          ...item,
+          contact_name: item.contact_name || item.nombre_contacto || null,
+          nombre_contacto: item.contact_name || item.nombre_contacto || null,
+        })) as ThirdParty[];
+        localStorage.setItem(STORAGE_KEYS.thirdParties, JSON.stringify(mapped));
+        return mapped;
       }
     } catch {
       // Continuar al fallback local
@@ -121,7 +144,8 @@ export const PractikoThirdPartyService = {
 
   async saveThirdParty(party: Partial<ThirdParty>): Promise<ThirdParty> {
     const list = await this.getThirdParties();
-    const id = party.id || `tp-${Date.now()}`;
+    // Supabase requiere tipo UUID estricto en la columna id
+    const id = isValidUuid(party.id) ? (party.id as string) : generateUuid();
     const now = new Date().toISOString();
 
     const fullParty: ThirdParty = {
@@ -142,6 +166,8 @@ export const PractikoThirdPartyService = {
       ciudad: party.ciudad || 'Bogotá D.C.',
       correo_fe: party.correo_fe || '',
       nombre_sucursal: party.nombre_sucursal || 'PRINCIPAL',
+      contact_name: party.contact_name || party.nombre_contacto || null,
+      nombre_contacto: party.contact_name || party.nombre_contacto || null,
       vendedor: party.vendedor || 'LUENGAS ACOSTA DANIEL ARTURO',
       dias_credito: Number(party.dias_credito) || 0,
       email: party.email || '',
@@ -157,10 +183,18 @@ export const PractikoThirdPartyService = {
       created_at: party.created_at || now,
     };
 
+    // La base de datos de Supabase contiene únicamente la columna 'contact_name' (en inglés)
+    const { nombre_contacto, ...dbPayload } = fullParty;
+
     // Intentar guardar en Supabase si la tabla existe
     try {
-      await supabase.from('third_parties').upsert(fullParty);
-    } catch {}
+      const { error } = await supabase.from('third_parties').upsert(dbPayload);
+      if (error) {
+        console.error('Error guardando tercero en Supabase:', error);
+      }
+    } catch (err) {
+      console.error('Excepción al conectar con Supabase:', err);
+    }
 
     const index = list.findIndex((p) => p.id === id);
     if (index >= 0) {
@@ -172,13 +206,24 @@ export const PractikoThirdPartyService = {
     localStorage.setItem(STORAGE_KEYS.thirdParties, JSON.stringify(list));
     return fullParty;
   },
+
+  async deleteThirdParty(id: string): Promise<void> {
+    try {
+      if (isValidUuid(id)) {
+        await supabase.from('third_parties').delete().eq('id', id);
+      }
+    } catch {}
+
+    const list = (await this.getThirdParties()).filter((p) => p.id !== id);
+    localStorage.setItem(STORAGE_KEYS.thirdParties, JSON.stringify(list));
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SERVICIO DE CONCEPTOS DE FACTURACIÓN (Practiko)
+// SERVICIO DE CONCEPTOS DE FACTURACIÓN
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PractikoBillingConceptService = {
+export const BillingConceptService = {
   async getConcepts(): Promise<BillingConcept[]> {
     try {
       const { data, error } = await supabase
@@ -231,13 +276,23 @@ export const PractikoBillingConceptService = {
     localStorage.setItem(STORAGE_KEYS.billingConcepts, JSON.stringify(list));
     return fullConcept;
   },
+
+  async deleteConcept(id: string): Promise<void> {
+    try {
+      await supabase.from('billing_concepts').delete().eq('id', id);
+    } catch {}
+
+    const list = await this.getConcepts();
+    const filtered = list.filter((c) => c.id !== id);
+    localStorage.setItem(STORAGE_KEYS.billingConcepts, JSON.stringify(filtered));
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SERVICIO DE COTIZACIONES (Practiko)
+// SERVICIO DE COTIZACIONES
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PractikoQuotationService = {
+export const QuotationService = {
   async getQuotations(): Promise<Quotation[]> {
     try {
       const { data, error } = await supabase
@@ -257,7 +312,7 @@ export const PractikoQuotationService = {
       } catch {}
     }
 
-    // Semilla inicial con la cotización exacta CS-2609-7 de la imagen
+    // Semilla inicial con la cotización representativa CS-2609-7
     const sampleQuotation: Quotation = {
       id: 'quote-sample-cs2609-7',
       consecutivo: 'CS-2609-7',
@@ -348,6 +403,29 @@ export const PractikoQuotationService = {
     localStorage.setItem(STORAGE_KEYS.quotations, JSON.stringify(list));
     return quote;
   },
+
+  async getQuotationById(id: string): Promise<Quotation | null> {
+    const list = await this.getQuotations();
+    return list.find((q) => q.id === id) || null;
+  },
+
+  async updateQuotationStatus(id: string, estado: Quotation['estado']): Promise<void> {
+    const list = await this.getQuotations();
+    const quote = list.find((q) => q.id === id);
+    if (!quote) return;
+    quote.estado = estado;
+    await this.saveQuotation(quote);
+  },
+
+  async deleteQuotation(id: string): Promise<void> {
+    try {
+      await supabase.from('quotations').delete().eq('id', id);
+    } catch {}
+
+    const list = await this.getQuotations();
+    const filtered = list.filter((q) => q.id !== id);
+    localStorage.setItem(STORAGE_KEYS.quotations, JSON.stringify(filtered));
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -374,7 +452,7 @@ export const ShippingInstructionService = {
       } catch {}
     }
 
-    // Semilla inicial con las instrucciones históricas de SQLite
+    // Semilla inicial con las instrucciones históricas
     const initialSeed: ShippingInstruction[] = [
       {
         id: 'inst-1',
@@ -470,4 +548,28 @@ export const ShippingInstructionService = {
     localStorage.setItem(STORAGE_KEYS.instructions, JSON.stringify(list));
     return inst;
   },
+
+  async getInstructionById(id: string): Promise<ShippingInstruction | null> {
+    const list = await this.getInstructions();
+    return list.find((i) => i.id === id) || null;
+  },
+
+  async updateInstructionStatus(id: string, estado: 'borrador' | 'finalizada'): Promise<void> {
+    const list = await this.getInstructions();
+    const inst = list.find((i) => i.id === id);
+    if (!inst) return;
+    inst.estado = estado;
+    await this.saveInstruction(inst);
+  },
+
+  async deleteInstruction(id: string): Promise<void> {
+    try {
+      await supabase.from('shipping_instructions').delete().eq('id', id);
+    } catch {}
+
+    const list = await this.getInstructions();
+    const filtered = list.filter((i) => i.id !== id);
+    localStorage.setItem(STORAGE_KEYS.instructions, JSON.stringify(filtered));
+  },
 };
+

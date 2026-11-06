@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Save,
   Printer,
@@ -7,20 +7,27 @@ import {
   Plus,
   Trash2,
   ArrowLeft,
+  FileSpreadsheet,
 } from 'lucide-react';
-import type { Quotation, QuotationItem, ThirdParty, BillingConcept } from '../types/practiko';
+import type { Quotation, QuotationItem, ThirdParty, BillingConcept } from '../types/commercial';
 import {
-  PractikoQuotationService,
-  PractikoThirdPartyService,
-  PractikoBillingConceptService,
-} from '../services/practikoService';
+  QuotationService,
+  ThirdPartyService,
+  BillingConceptService,
+} from '../services/commercialService';
 import { usePdfGenerator } from '../hooks/usePdfGenerator';
 import { buildQuotationHtml } from '../templates/quotationPdfTemplate';
+import { saveFormDraft, loadFormDraft, clearFormDraft } from '../lib/draftStorage';
 
 export const QuotationCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('id');
   const { printHtml, previewHtml } = usePdfGenerator();
 
+  const [quotationId, setQuotationId] = useState(() => editId || `quote-${Date.now()}`);
+  const [isEditing, setIsEditing] = useState(Boolean(editId));
+  const [draftRestored, setDraftRestored] = useState(false);
   const [consecutivo, setConsecutivo] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [validez, setValidez] = useState(() => {
@@ -28,9 +35,10 @@ export const QuotationCreatePage: React.FC = () => {
     d.setDate(d.getDate() + 30);
     return d.toISOString().split('T')[0];
   });
-  const [formaPago, setFormaPago] = useState('A 30 DIAS');
-  const [vendedor, setVendedor] = useState('LUENGAS ACOSTA DANIEL ARTURO');
+  const [formaPago, setFormaPago] = useState('');
+  const [vendedor, setVendedor] = useState('');
   const [atencion, setAtencion] = useState('');
+  const [estado, setEstado] = useState<Quotation['estado']>('borrador');
 
   // Cliente / Tercero
   const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
@@ -44,36 +52,13 @@ export const QuotationCreatePage: React.FC = () => {
   const [billingConcepts, setBillingConcepts] = useState<BillingConcept[]>([]);
 
   // Ítems cotizados
-  const [items, setItems] = useState<QuotationItem[]>([
-    { id: '1', orden: 1, cantidad: 1, concepto: 'IN - FLETE AÉREO INTERNACIONAL', valor_unitario: 380, porcentaje_descuento: 0, subtotal: 380, iva: 0, total: 380 },
-    { id: '2', orden: 2, cantidad: 1, concepto: 'IN - TRANSPORTE TERRESTRE URBANO', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 0, total: 75 },
-    { id: '3', orden: 3, cantidad: 1, concepto: 'IN - MANEJO INGELOX', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 14.25, total: 89.25 },
-  ]);
+  const [items, setItems] = useState<QuotationItem[]>([]);
 
   const [moneda, setMoneda] = useState<'USD' | 'COP' | 'EUR'>('USD');
-  const [observaciones, setObservaciones] = useState('EXP AEREA BOG - GDL 1 CAJA 25 KG IMO 9 UN3082 DIM: 42x40x50 cm');
+  const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    async function init() {
-      const nextConsecutive = await PractikoQuotationService.generateNextConsecutive();
-      setConsecutivo(nextConsecutive);
-
-      const parties = await PractikoThirdPartyService.getThirdParties();
-      setThirdParties(parties);
-
-      const concepts = await PractikoBillingConceptService.getConcepts();
-      setBillingConcepts(concepts);
-
-      // Preseleccionar primer cliente si existe
-      if (parties.length > 0) {
-        handleSelectThirdParty(parties[0]);
-      }
-    }
-    init();
-  }, []);
-
-  const handleSelectThirdParty = (p: ThirdParty) => {
+  const applyThirdParty = useCallback((p: ThirdParty) => {
     setSelectedThirdPartyId(p.id);
     setClienteNombre(p.razon_social);
     setClienteNit(p.identificacion ? `${p.identificacion}${p.dv ? '-' + p.dv : ''}` : '');
@@ -85,6 +70,89 @@ export const QuotationCreatePage: React.FC = () => {
     } else {
       setFormaPago('CONTADO');
     }
+  }, []);
+
+  useEffect(() => {
+    async function init() {
+      const parties = await ThirdPartyService.getThirdParties();
+      setThirdParties(parties);
+
+      const concepts = await BillingConceptService.getConcepts();
+      setBillingConcepts(concepts);
+
+      if (editId) {
+        const existing = await QuotationService.getQuotationById(editId);
+        if (existing) {
+          setIsEditing(true);
+          setQuotationId(existing.id);
+          setConsecutivo(existing.consecutivo);
+          setFecha(existing.fecha);
+          setValidez(existing.validez);
+          setFormaPago(existing.forma_pago);
+          setVendedor(existing.vendedor);
+          setAtencion(existing.atencion);
+          setSelectedThirdPartyId(existing.tercero_id || '');
+          setClienteNombre(existing.cliente_nombre);
+          setClienteNit(existing.cliente_nit);
+          setClienteDireccion(existing.cliente_direccion);
+          setClienteTelefono(existing.cliente_telefono);
+          setItems(existing.items || []);
+          setMoneda(existing.moneda);
+          setObservaciones(existing.observaciones);
+          setEstado(existing.estado);
+          return;
+        }
+      }
+
+      const nextConsecutive = await QuotationService.generateNextConsecutive();
+      setConsecutivo(nextConsecutive);
+
+      if (!editId) {
+        const draft = loadFormDraft<any>('quotation_create');
+        if (draft) {
+          if (draft.clienteNombre) setClienteNombre(draft.clienteNombre);
+          if (draft.clienteNit) setClienteNit(draft.clienteNit);
+          if (draft.clienteDireccion) setClienteDireccion(draft.clienteDireccion);
+          if (draft.clienteTelefono) setClienteTelefono(draft.clienteTelefono);
+          if (draft.selectedThirdPartyId) setSelectedThirdPartyId(draft.selectedThirdPartyId);
+          if (draft.vendedor) setVendedor(draft.vendedor);
+          if (draft.atencion) setAtencion(draft.atencion);
+          if (draft.formaPago) setFormaPago(draft.formaPago);
+          if (draft.items && draft.items.length > 0) setItems(draft.items);
+          if (draft.moneda) setMoneda(draft.moneda);
+          if (draft.observaciones) setObservaciones(draft.observaciones);
+          if (draft.estado) setEstado(draft.estado);
+          setDraftRestored(true);
+        } else if (parties.length > 0) {
+          applyThirdParty(parties[0]);
+        }
+      }
+    }
+    init();
+  }, [editId, applyThirdParty]);
+
+  // Auto-guardado de borrador en sessionStorage
+  useEffect(() => {
+    if (editId) return;
+    if (!clienteNombre && !observaciones) return;
+    saveFormDraft('quotation_create', {
+      clienteNombre,
+      clienteNit,
+      clienteDireccion,
+      clienteTelefono,
+      selectedThirdPartyId,
+      vendedor,
+      atencion,
+      formaPago,
+      items,
+      moneda,
+      observaciones,
+      estado,
+    });
+  }, [editId, clienteNombre, clienteNit, clienteDireccion, clienteTelefono, selectedThirdPartyId, vendedor, atencion, formaPago, items, moneda, observaciones, estado]);
+
+  const handleSelectThirdParty = (p: ThirdParty) => {
+    applyThirdParty(p);
   };
 
   const handleAddItem = () => {
@@ -111,7 +179,6 @@ export const QuotationCreatePage: React.FC = () => {
     const updated = [...items];
     const item = { ...updated[index], [field]: val };
 
-    // Si cambia el concepto, autocompletar tarifa e IVA si coincide con el catálogo
     if (field === 'concepto') {
       const match = billingConcepts.find((c) => c.codigo === val || c.nombre === val);
       if (match) {
@@ -133,7 +200,6 @@ export const QuotationCreatePage: React.FC = () => {
 
     item.subtotal = qty * unitPrice * discountFactor;
 
-    // Calcular IVA
     const currentConcept = billingConcepts.find((c) => c.codigo === item.concepto);
     const appliesIva = currentConcept ? currentConcept.aplica_iva : item.iva > 0;
     const ivaRate = currentConcept?.porcentaje_iva ? currentConcept.porcentaje_iva / 100 : 0.19;
@@ -156,7 +222,7 @@ export const QuotationCreatePage: React.FC = () => {
   const total = subtotal + totalIva;
 
   const currentQuotationObject: Quotation = {
-    id: `quote-${Date.now()}`,
+    id: quotationId,
     consecutivo,
     fecha,
     validez,
@@ -174,25 +240,31 @@ export const QuotationCreatePage: React.FC = () => {
     total_iva: totalIva,
     total,
     moneda,
-    estado: 'enviada',
+    estado,
     items,
   };
 
   const handleSave = async () => {
     if (!clienteNombre.trim() || items.length === 0) {
-      alert('Debes indicar el cliente y al menos un concepto en la oferta.');
+      alert('Debes indicar el cliente y al menos un concepto en la cotización.');
       return;
     }
 
     setSaving(true);
     try {
-      await PractikoQuotationService.saveQuotation(currentQuotationObject);
+      await QuotationService.saveQuotation(currentQuotationObject);
+      setIsEditing(true);
+      clearFormDraft('quotation_create');
       navigate('/quotations');
     } catch (err: any) {
       alert(err.message || 'Error al guardar cotización');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleGenerateInstruction = () => {
+    navigate(`/instructions/new?quotationId=${encodeURIComponent(quotationId)}`);
   };
 
   const handlePreviewPdf = () => {
@@ -206,53 +278,91 @@ export const QuotationCreatePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+    <div className="space-y-5 sm:space-y-6 max-w-5xl mx-auto pb-16">
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/quotations')}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="erp-btn-secondary p-2"
+            aria-label="Volver a cotizaciones"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              Nueva Cotización Comercial
-              <span className="text-xs font-mono px-2 py-0.5 rounded bg-brand-orange text-white">
-                {consecutivo}
-              </span>
+            <h1 className="erp-page-title">
+              {isEditing ? `Editar Cotización ${consecutivo}` : `Nueva Cotización ${consecutivo}`}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Generador oficial Practiko Carga con consecutivo automático y exportación formal.
+            <p className="erp-page-subtitle">
+              Propuesta comercial de transporte con exportación formal en PDF.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={handleGenerateInstruction}
+            className="erp-btn-secondary"
+            title="Generar Instrucción de Embarque con estos datos"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            <span className="hidden sm:inline">Generar Instrucción</span>
+          </button>
           <button onClick={handlePreviewPdf} className="erp-btn-secondary">
             <Eye className="w-4 h-4" />
-            <span>Vista Previa</span>
+            <span className="hidden sm:inline">Vista Previa</span>
           </button>
           <button onClick={handlePrintPdf} className="erp-btn-secondary">
             <Printer className="w-4 h-4" />
-            <span>Imprimir PDF</span>
+            <span className="hidden sm:inline">Imprimir PDF</span>
           </button>
           <button onClick={handleSave} disabled={saving} className="erp-btn-primary">
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Guardando...' : 'Guardar Oferta'}</span>
+            <span>{saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Guardar Cotización'}</span>
           </button>
         </div>
       </div>
 
+      {draftRestored && (
+        <div className="erp-badge-emerald w-full p-3 rounded-xl flex items-center justify-between text-xs">
+          <span>Borrador de cotización recuperado automáticamente. Tu trabajo no se perdió.</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearFormDraft('quotation_create');
+              setDraftRestored(false);
+            }}
+            className="underline cursor-pointer text-[10px] ml-3 text-emerald-700 dark:text-emerald-300"
+          >
+            Descartar borrador
+          </button>
+        </div>
+      )}
+
       {/* FORMULARIO ENCABEZADO */}
       <div className="erp-card space-y-4">
-        <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800 pb-2">
-          1. Datos de la Propuesta & Cliente
-        </h2>
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
+            1. Datos de la Propuesta & Cliente
+          </h2>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Estado:</label>
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value as any)}
+              className="erp-select text-xs font-bold uppercase py-1 px-2"
+            >
+              <option value="borrador">Borrador</option>
+              <option value="enviada">Enviada</option>
+              <option value="aprobada">Aprobada</option>
+              <option value="rechazada">Rechazada</option>
+            </select>
+          </div>
+        </div>
 
         {/* SELECTOR DE TERCERO */}
-        <div className="p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl space-y-2">
+        <div className="erp-card-subtle space-y-2">
           <label className="erp-label">Seleccionar Cliente desde Directorio de Terceros</label>
           <select
             value={selectedThirdPartyId}
@@ -271,14 +381,15 @@ export const QuotationCreatePage: React.FC = () => {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="erp-label">Consecutivo</label>
             <input
               type="text"
               value={consecutivo}
               onChange={(e) => setConsecutivo(e.target.value)}
-              className="erp-input font-mono font-bold text-brand-orange"
+              className="erp-input font-mono font-bold"
+              style={{ color: 'var(--brand-orange)' }}
             />
           </div>
           <div>
@@ -291,7 +402,7 @@ export const QuotationCreatePage: React.FC = () => {
             />
           </div>
           <div>
-            <label className="erp-label">Validez de Oferta</label>
+            <label className="erp-label">Validez de la Cotización</label>
             <input
               type="date"
               value={validez}
@@ -345,7 +456,7 @@ export const QuotationCreatePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1 border-t border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
           <div className="sm:col-span-2">
             <label className="erp-label">Razón Social Cliente</label>
             <input
@@ -378,49 +489,49 @@ export const QuotationCreatePage: React.FC = () => {
 
       {/* TABLA DE CONCEPTOS COTIZADOS */}
       <div className="erp-card space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
             2. Conceptos Tarifarios & Servicios Cotizados
           </h2>
-          <button onClick={handleAddItem} className="erp-btn-primary py-1 text-[11px]">
+          <button onClick={handleAddItem} className="erp-btn-primary py-1 px-3 text-[11px]">
             <Plus className="w-3.5 h-3.5" />
             <span>Agregar Concepto</span>
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+        <div className="erp-table-container">
+          <table className="erp-table">
             <thead>
-              <tr className="border-b border-slate-800 text-[10px] uppercase text-slate-400 font-bold">
-                <th className="p-2 text-center w-12">Cant</th>
-                <th className="p-2 text-left">Concepto / Servicio</th>
-                <th className="p-2 text-right w-28">Vr. Unitario</th>
-                <th className="p-2 text-center w-20">% Dto</th>
-                <th className="p-2 text-right w-28">Subtotal</th>
-                <th className="p-2 text-right w-24">IVA</th>
-                <th className="p-2 text-right w-28">Total</th>
-                <th className="p-2 text-center w-10"></th>
+              <tr>
+                <th className="erp-th text-center w-12">Cant</th>
+                <th className="erp-th text-left">Concepto / Servicio</th>
+                <th className="erp-th text-right w-28">Vr. Unitario</th>
+                <th className="erp-th text-center w-20">% Dto</th>
+                <th className="erp-th text-right w-28">Subtotal</th>
+                <th className="erp-th text-right w-24">IVA</th>
+                <th className="erp-th text-right w-28">Total</th>
+                <th className="erp-th text-center w-10"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody>
               {items.map((item, index) => (
-                <tr key={item.id} className="hover:bg-slate-800/30">
-                  <td className="p-1.5 text-center">
+                <tr key={item.id} className="erp-tr">
+                  <td className="erp-td text-center">
                     <input
                       type="number"
                       min={1}
                       value={item.cantidad}
                       onChange={(e) => handleItemChange(index, 'cantidad', parseFloat(e.target.value) || 1)}
-                      className="erp-input p-1 text-center font-mono w-12"
+                      className="erp-input p-1 text-center font-mono w-14"
                     />
                   </td>
-                  <td className="p-1.5">
+                  <td className="erp-td">
                     <input
                       type="text"
                       list={`concepts-list-${index}`}
                       value={item.concepto}
                       onChange={(e) => handleItemChange(index, 'concepto', e.target.value)}
-                      className="erp-input font-bold uppercase"
+                      className="erp-input font-bold uppercase text-xs"
                       placeholder="Selecciona o escribe el concepto..."
                     />
                     <datalist id={`concepts-list-${index}`}>
@@ -431,46 +542,48 @@ export const QuotationCreatePage: React.FC = () => {
                       ))}
                     </datalist>
                   </td>
-                  <td className="p-1.5 text-right">
+                  <td className="erp-td text-right">
                     <input
                       type="number"
                       min={0}
                       step="any"
                       value={item.valor_unitario}
                       onChange={(e) => handleItemChange(index, 'valor_unitario', parseFloat(e.target.value) || 0)}
-                      className="erp-input p-1 text-right font-mono"
+                      className="erp-input p-1 text-right font-mono text-xs"
                     />
                   </td>
-                  <td className="p-1.5 text-center">
+                  <td className="erp-td text-center">
                     <input
                       type="number"
                       min={0}
                       max={100}
                       value={item.porcentaje_descuento}
                       onChange={(e) => handleItemChange(index, 'porcentaje_descuento', parseFloat(e.target.value) || 0)}
-                      className="erp-input p-1 text-center font-mono w-16"
+                      className="erp-input p-1 text-center font-mono w-16 text-xs"
                     />
                   </td>
-                  <td className="p-1.5 text-right font-mono font-semibold text-slate-300">
+                  <td className="erp-td text-right font-mono font-semibold" style={{ color: 'var(--text-secondary)' }}>
                     {item.subtotal.toLocaleString('es-CO')}
                   </td>
-                  <td className="p-1.5 text-right">
+                  <td className="erp-td text-right">
                     <input
                       type="number"
                       min={0}
                       step="any"
                       value={item.iva}
                       onChange={(e) => handleItemChange(index, 'iva', parseFloat(e.target.value) || 0)}
-                      className="erp-input p-1 text-right font-mono text-slate-400"
+                      className="erp-input p-1 text-right font-mono text-xs"
+                      style={{ color: 'var(--text-muted)' }}
                     />
                   </td>
-                  <td className="p-1.5 text-right font-mono font-bold text-white">
+                  <td className="erp-td text-right font-mono font-bold" style={{ color: 'var(--text-primary)' }}>
                     {item.total.toLocaleString('es-CO')}
                   </td>
-                  <td className="p-1.5 text-center">
+                  <td className="erp-td text-center">
                     <button
                       onClick={() => handleRemoveItem(index)}
-                      className="text-slate-500 hover:text-rose-400 p-1"
+                      className="erp-icon-btn hover:text-rose-500"
+                      title="Eliminar fila"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -482,19 +595,19 @@ export const QuotationCreatePage: React.FC = () => {
         </div>
 
         {/* TOTALIZADORES FINANCIEROS */}
-        <div className="flex justify-end pt-3 border-t border-slate-800">
-          <div className="w-72 bg-slate-800/50 p-4 rounded-xl space-y-2 border border-slate-700/60 font-mono text-xs">
-            <div className="flex justify-between text-slate-400">
+        <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
+          <div className="erp-card-subtle w-full sm:w-80 space-y-2 font-mono text-xs">
+            <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
               <span>Subtotal ({moneda}):</span>
               <span>{subtotal.toLocaleString('es-CO')}</span>
             </div>
-            <div className="flex justify-between text-slate-400">
+            <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
               <span>Total IVA ({moneda}):</span>
               <span>{totalIva.toLocaleString('es-CO')}</span>
             </div>
-            <div className="flex justify-between text-white font-bold text-sm border-t border-slate-700 pt-2">
-              <span className="text-brand-orange">TOTAL OFERTA:</span>
-              <span className="text-brand-orange">{moneda} {total.toLocaleString('es-CO')}</span>
+            <div className="flex justify-between font-bold text-sm pt-2" style={{ borderTop: '1px solid var(--border-default)', color: 'var(--brand-orange)' }}>
+              <span>TOTAL COTIZACIÓN:</span>
+              <span>{moneda} {total.toLocaleString('es-CO')}</span>
             </div>
           </div>
         </div>
@@ -502,8 +615,8 @@ export const QuotationCreatePage: React.FC = () => {
 
       {/* OBSERVACIONES DEL EMBARQUE */}
       <div className="erp-card space-y-3">
-        <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-          3. Observaciones Operativas de la Oferta
+        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
+          3. Observaciones Operativas de la Cotización
         </h2>
         <textarea
           rows={3}
@@ -512,7 +625,7 @@ export const QuotationCreatePage: React.FC = () => {
           placeholder="Ej: EXP AEREA BOG - GDL 1 CAJA 25 KG IMO 9 UN3082 DIM: 42x40x50 cm"
           className="erp-textarea font-mono uppercase"
         />
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
           Esta descripción aparecerá en el recuadro "OBSERVACIONES" de la cotización comercial emitida al cliente.
         </p>
       </div>

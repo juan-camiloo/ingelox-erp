@@ -1,4 +1,4 @@
-import type { Quotation } from '../types/practiko';
+import type { Quotation } from '../types/commercial';
 
 function esc(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
@@ -262,10 +262,10 @@ export function buildQuotationHtml(quotation: Quotation): string {
     Dpto Comercial
   </div>
 
-  <!-- PIE DE PÁGINA ESTILO PRACTIKO -->
+  <!-- PIE DE PÁGINA -->
   <div class="page-bottom">
     <span>PÁGINA 1/1</span>
-    <span>PRACTIKO / ELABORADO ${printTimeStr}</span>
+    <span>INGELOX LOGISTICS / ELABORADO ${printTimeStr}</span>
   </div>
 
 </body>

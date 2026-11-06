@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Receipt,
   Plus,
   Search,
   X,
   Save,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
-import type { BillingConcept } from '../types/practiko';
-import { PractikoBillingConceptService } from '../services/practikoService';
+import type { BillingConcept } from '../types/commercial';
+import { BillingConceptService } from '../services/commercialService';
+import { MarqueeText } from '../components/common/MarqueeText';
 
 export const BillingConceptsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [concepts, setConcepts] = useState<BillingConcept[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -30,7 +36,7 @@ export const BillingConceptsPage: React.FC = () => {
   const loadConcepts = async () => {
     setLoading(true);
     try {
-      const data = await PractikoBillingConceptService.getConcepts();
+      const data = await BillingConceptService.getConcepts();
       setConcepts(data);
     } finally {
       setLoading(false);
@@ -40,6 +46,25 @@ export const BillingConceptsPage: React.FC = () => {
   useEffect(() => {
     loadConcepts();
   }, []);
+
+  useEffect(() => {
+    const urlQuery = searchParams.get('search');
+    if (urlQuery !== null) {
+      setSearchQuery(urlQuery);
+    }
+  }, [searchParams]);
+
+  const handleDeleteConcept = async (concept: BillingConcept) => {
+    if (!confirm(`¿Eliminar el concepto "${concept.nombre}" (${concept.codigo})?\nEsta acción no se puede deshacer.`)) {
+      return;
+    }
+    try {
+      await BillingConceptService.deleteConcept(concept.id);
+      await loadConcepts();
+    } catch (err: any) {
+      alert(`Error al eliminar: ${err.message || 'No se pudo eliminar el concepto'}`);
+    }
+  };
 
   const handleOpenCreateModal = () => {
     setEditingConcept(null);
@@ -71,7 +96,7 @@ export const BillingConceptsPage: React.FC = () => {
 
     setSaving(true);
     try {
-      await PractikoBillingConceptService.saveConcept({
+      await BillingConceptService.saveConcept({
         id: editingConcept?.id,
         codigo: codigo.trim().toUpperCase(),
         nombre: nombre.trim(),
@@ -98,132 +123,154 @@ export const BillingConceptsPage: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">Conceptos de Facturación</h1>
-            <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-mono font-bold">
-              CATÁLOGO PRACTIKO
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Estandarización de tarifas, servicios de transporte, manejos y recargos para cotizaciones y facturas.
+          <h1 className="erp-page-title">Conceptos de Facturación</h1>
+          <p className="erp-page-subtitle">
+            Catálogo de tarifas, servicios de transporte y recargos operativos.
           </p>
         </div>
 
-        <button onClick={handleOpenCreateModal} className="erp-btn-primary self-start sm:self-auto">
+        <button onClick={handleOpenCreateModal} className="erp-btn-primary shrink-0 self-start sm:self-auto">
           <Plus className="w-4 h-4" />
           <span>Nuevo Concepto</span>
         </button>
       </div>
 
       {/* BARRA DE BÚSQUEDA */}
-      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl p-3">
+      <div className="erp-filter-bar">
         <div className="relative w-full max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search
+            className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: 'var(--text-disabled)' }}
+          />
           <input
             type="text"
             placeholder="Buscar por código (ej. IN - FLETE) o descripción..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="erp-input pl-9"
+            className="erp-search-input"
           />
         </div>
       </div>
 
       {/* TABLA DE CONCEPTOS */}
-      <div className="erp-card p-0 overflow-hidden">
-        <div className="erp-table-container">
-          <table className="erp-table">
-            <thead>
+      <div className="erp-table-container">
+        <table className="erp-table">
+          <thead>
+            <tr>
+              <th className="erp-th">Código de Servicio</th>
+              <th className="erp-th">Descripción del Concepto</th>
+              <th className="erp-th">Categoría</th>
+              <th className="erp-th">IVA Aplicable</th>
+              <th className="erp-th">Moneda Default</th>
+              <th className="erp-th text-right">Tarifa Sugerida</th>
+              <th className="erp-th text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
               <tr>
-                <th className="erp-th">Código de Servicio</th>
-                <th className="erp-th">Descripción del Concepto</th>
-                <th className="erp-th">Categoría</th>
-                <th className="erp-th">IVA Aplicable</th>
-                <th className="erp-th">Moneda Default</th>
-                <th className="erp-th text-right">Tarifa Sugerida</th>
-                <th className="erp-th text-right">Acción</th>
+                <td colSpan={7} className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                  Cargando catálogo de conceptos...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-400">
-                    Cargando catálogo de conceptos...
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center py-8 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  No hay conceptos que coincidan con la búsqueda.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((item) => (
+                <tr key={item.id} className="erp-tr">
+                  <td className="erp-td font-mono font-bold whitespace-nowrap" style={{ color: 'var(--brand-orange)' }}>
+                    <MarqueeText
+                      text={item.codigo}
+                      containerClassName="max-w-[180px] sm:max-w-[220px]"
+                      className="font-mono font-bold"
+                    />
                   </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-500 text-xs">
-                    No hay conceptos que coincidan con la búsqueda.
+                  <td className="erp-td font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    <MarqueeText
+                      text={item.nombre}
+                      containerClassName="max-w-[220px] sm:max-w-[320px]"
+                      className="font-semibold"
+                    />
                   </td>
-                </tr>
-              ) : (
-                filtered.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="erp-td font-mono font-bold text-white">
-                      {item.codigo}
-                    </td>
-                    <td className="erp-td font-semibold text-slate-200">
-                      {item.nombre}
-                    </td>
-                    <td className="erp-td">
-                      <span className="erp-badge-slate">{item.categoria || 'General'}</span>
-                    </td>
-                    <td className="erp-td">
-                      {item.aplica_iva ? (
-                        <span className="erp-badge-orange">IVA {item.porcentaje_iva}%</span>
-                      ) : (
-                        <span className="erp-badge-emerald">Exento / 0%</span>
-                      )}
-                    </td>
-                    <td className="erp-td font-mono font-bold text-slate-300">
-                      {item.moneda_default}
-                    </td>
-                    <td className="erp-td text-right font-mono font-bold text-white">
-                      {item.valor_sugerido
-                        ? `${item.moneda_default} ${item.valor_sugerido.toLocaleString('es-CO')}`
-                        : '--'}
-                    </td>
-                    <td className="erp-td text-right">
+                  <td className="erp-td whitespace-nowrap">
+                    <span className="erp-badge-slate">{item.categoria || 'General'}</span>
+                  </td>
+                  <td className="erp-td whitespace-nowrap">
+                    {item.aplica_iva ? (
+                      <span className="erp-badge-orange">IVA {item.porcentaje_iva}%</span>
+                    ) : (
+                      <span className="erp-badge-emerald">Exento (0%)</span>
+                    )}
+                  </td>
+                  <td className="erp-td font-mono font-bold whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                    {item.moneda_default}
+                  </td>
+                  <td className="erp-td text-right font-mono font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                    {item.valor_sugerido
+                      ? `${item.moneda_default} ${item.valor_sugerido.toLocaleString('es-CO')}`
+                      : '--'}
+                  </td>
+                  <td className="erp-td text-right whitespace-nowrap">
+                    <div className="erp-action-group">
                       <button
                         onClick={() => handleOpenEditModal(item)}
-                        className="text-xs text-brand-orange hover:text-orange-400 font-bold hover:underline cursor-pointer"
+                        className="erp-action-btn erp-action-btn-edit"
+                        title="Editar concepto"
+                        aria-label="Editar"
                       >
-                        Editar
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <button
+                        onClick={() => handleDeleteConcept(item)}
+                        className="erp-action-btn erp-action-btn-delete"
+                        title="Eliminar concepto del catálogo"
+                        aria-label="Eliminar"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* MODAL CREAR / EDITAR */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-3">
-              <Receipt className="w-5 h-5 text-brand-orange" />
-              <h2 className="text-base font-bold text-white uppercase tracking-wider">
-                {editingConcept ? 'Editar Concepto de Facturación' : 'Nuevo Concepto — Practiko'}
-              </h2>
+      {showModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="erp-modal-overlay" onClick={() => setShowModal(false)}>
+            <div className="erp-modal w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            {/* Header Pinned */}
+            <div className="erp-modal-header">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-orange)' }} />
+                <h2 className="erp-page-title text-base uppercase tracking-wider">
+                  {editingConcept ? 'Editar Concepto de Facturación' : 'Nuevo Concepto'}
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="erp-icon-btn"
+                aria-label="Cerrar modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleSaveConcept} className="space-y-4">
-              <div>
+            <form onSubmit={handleSaveConcept} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="erp-modal-body space-y-4">
+                <div>
                 <label className="erp-label">Código Oficial (Prefijo IN - )</label>
                 <input
                   type="text"
@@ -247,7 +294,7 @@ export const BillingConceptsPage: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="erp-label">Categoría Operativa</label>
                   <select
@@ -280,7 +327,7 @@ export const BillingConceptsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="erp-label">Tarifa Base Sugerida</label>
                   <input
@@ -307,8 +354,8 @@ export const BillingConceptsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/60">
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-200">
+              <div className="erp-card-subtle">
+                <label className="flex items-center gap-2 cursor-pointer text-xs" style={{ color: 'var(--text-primary)' }}>
                   <input
                     type="checkbox"
                     checked={aplicaIva}
@@ -316,35 +363,38 @@ export const BillingConceptsPage: React.FC = () => {
                       setAplicaIva(e.target.checked);
                       if (e.target.checked && porcentajeIva === 0) setPorcentajeIva(19);
                     }}
-                    className="rounded text-brand-orange focus:ring-brand-orange"
+                    className="rounded accent-[#F35815]"
                   />
                   <span className="font-semibold">Aplica Impuesto al Valor Agregado (IVA)</span>
                 </label>
-                <p className="text-[10px] text-slate-400 mt-1 pl-5">
+                <p className="text-[10px] mt-1 pl-5" style={{ color: 'var(--text-muted)' }}>
                   Los fletes internacionales suelen estar exentos (0%), mientras que gastos de manejo local y aduanero causan IVA del 19%.
                 </p>
               </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="erp-btn-secondary"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="erp-btn-primary"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? 'Guardando...' : 'Guardar Concepto'}</span>
-                </button>
-              </div>
-            </form>
+            {/* Pinned Footer */}
+            <div className="erp-modal-footer">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="erp-btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="erp-btn-primary"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? 'Guardando...' : 'Guardar Concepto'}</span>
+              </button>
+            </div>
+          </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

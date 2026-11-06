@@ -9,8 +9,8 @@ import {
   Trash2,
   ArrowLeft,
 } from 'lucide-react';
-import type { ShippingInstruction, ShippingInstructionConcept, ThirdParty } from '../types/practiko';
-import { ShippingInstructionService, PractikoThirdPartyService } from '../services/practikoService';
+import type { ShippingInstruction, ShippingInstructionConcept, ThirdParty } from '../types/commercial';
+import { ShippingInstructionService, ThirdPartyService, QuotationService } from '../services/commercialService';
 import { usePdfGenerator } from '../hooks/usePdfGenerator';
 import { useExcelGenerator } from '../hooks/useExcelGenerator';
 import { buildInstructionHtml } from '../templates/instructionPdfTemplate';
@@ -32,14 +32,25 @@ const CREDITOS = [
   { val: 'PENDIENTE', label: 'Pendiente de aprobación' },
 ];
 
+import { useSearchParams } from 'react-router-dom';
+import { saveFormDraft, loadFormDraft, clearFormDraft } from '../lib/draftStorage';
+
 export const InstructionCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('id');
+  const quotationId = searchParams.get('quotationId');
+
   const { printHtml, previewHtml } = usePdfGenerator();
   const { exportInstructionToExcel, isExporting } = useExcelGenerator();
 
+  const [instructionId, setInstructionId] = useState(() => editId || `inst-${Date.now()}`);
+  const [isEditing, setIsEditing] = useState(Boolean(editId));
+  const [draftRestored, setDraftRestored] = useState(false);
+
   const [doNumber, setDoNumber] = useState('');
   const [fechaCreacion, setFechaCreacion] = useState(new Date().toISOString().split('T')[0]);
-  const [comercial, setComercial] = useState('LUENGAS ACOSTA DANIEL ARTURO');
+  const [comercial, setComercial] = useState('');
   const [oferta, setOferta] = useState('');
   const [cliente, setCliente] = useState('');
   const [credito, setCredito] = useState('SI-30');
@@ -62,20 +73,132 @@ export const InstructionCreatePage: React.FC = () => {
   const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
 
   // Conceptos
-  const [concepts, setConcepts] = useState<ShippingInstructionConcept[]>([
-    { id: '1', orden: 1, concepto: 'Flete Internacional', vendido: 1, proveedor: '', forma_pago: 'Prepaid', costo: '', moneda_costo: 'USD', venta: '', moneda_venta: 'USD', facturar_a: 'CLIENTE' },
-    { id: '2', orden: 2, concepto: 'Manejo Ingelox', vendido: 1, proveedor: 'Ingelox Logistics SAS', forma_pago: 'Prepaid', costo: '', moneda_costo: 'USD', venta: '', moneda_venta: 'USD', facturar_a: 'CLIENTE' },
-  ]);
+  const [concepts, setConcepts] = useState<ShippingInstructionConcept[]>([]);
 
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const parties = await PractikoThirdPartyService.getThirdParties();
+      const parties = await ThirdPartyService.getThirdParties();
       setThirdParties(parties);
+
+      // Si viene desde una Cotización, autocompletar datos y conceptos
+      if (quotationId) {
+        const quote = await QuotationService.getQuotationById(quotationId);
+        if (quote) {
+          setOferta(quote.consecutivo);
+          setCliente(quote.cliente_nombre);
+          setComercial(quote.vendedor || 'LUENGAS ACOSTA DANIEL ARTURO');
+          setContacto(quote.atencion || '');
+          setTelefono(quote.cliente_telefono || '');
+          setComentarios(quote.observaciones || '');
+
+          if (quote.forma_pago?.includes('30')) setCredito('SI-30');
+          else if (quote.forma_pago?.includes('15')) setCredito('SI-15');
+          else if (quote.forma_pago?.includes('7')) setCredito('SI-7');
+
+          // Generar conceptos desde los ítems de la cotización
+          if (quote.items && quote.items.length > 0) {
+            const mappedConcepts: ShippingInstructionConcept[] = quote.items.map((it, idx) => ({
+              id: `c-${Date.now()}-${idx}`,
+              orden: idx + 1,
+              concepto: it.concepto,
+              vendido: 1,
+              proveedor: it.concepto.toLowerCase().includes('ingelox') ? 'Ingelox Logistics SAS' : '',
+              forma_pago: 'Prepaid',
+              costo: '',
+              moneda_costo: quote.moneda || 'USD',
+              venta: String(it.valor_unitario),
+              moneda_venta: quote.moneda || 'USD',
+              facturar_a: quote.cliente_nombre,
+            }));
+            setConcepts(mappedConcepts);
+          }
+        }
+      } else if (editId) {
+        // Cargar instrucción para edición
+        const existing = await ShippingInstructionService.getInstructionById(editId);
+        if (existing) {
+          setIsEditing(true);
+          setInstructionId(existing.id);
+          setDoNumber(existing.do_number);
+          setFechaCreacion(existing.fecha_creacion);
+          setComercial(existing.comercial);
+          setOferta(existing.oferta);
+          setCliente(existing.cliente);
+          setCredito(existing.credito);
+          setContacto(existing.contacto);
+          setFacturarA(existing.facturar_a);
+          setTelefono(existing.telefono);
+          setCorreo(existing.correo);
+          setIncoterm(existing.incoterm);
+          setComplemento(existing.complemento);
+          setModalidad(existing.modalidad);
+          setRuta(existing.ruta);
+          setVia(existing.via);
+          setTipoEmbarque(existing.tipo_de_embarque);
+          setComentarios(existing.comentarios);
+          setEstado(existing.estado);
+          if (existing.concepts && existing.concepts.length > 0) {
+            setConcepts(existing.concepts);
+          }
+        }
+      } else {
+        // Restaurar borrador de instrucción si existe
+        const draft = loadFormDraft<any>('instruction_create');
+        if (draft) {
+          if (draft.doNumber) setDoNumber(draft.doNumber);
+          if (draft.fechaCreacion) setFechaCreacion(draft.fechaCreacion);
+          if (draft.comercial) setComercial(draft.comercial);
+          if (draft.oferta) setOferta(draft.oferta);
+          if (draft.cliente) setCliente(draft.cliente);
+          if (draft.credito) setCredito(draft.credito);
+          if (draft.contacto) setContacto(draft.contacto);
+          if (draft.facturarA) setFacturarA(draft.facturarA);
+          if (draft.telefono) setTelefono(draft.telefono);
+          if (draft.correo) setCorreo(draft.correo);
+          if (draft.incoterm) setIncoterm(draft.incoterm);
+          if (draft.complemento) setComplemento(draft.complemento);
+          if (draft.modalidad) setModalidad(draft.modalidad);
+          if (draft.ruta) setRuta(draft.ruta);
+          if (draft.via) setVia(draft.via);
+          if (draft.tipoEmbarque) setTipoEmbarque(draft.tipoEmbarque);
+          if (draft.comentarios) setComentarios(draft.comentarios);
+          if (draft.estado) setEstado(draft.estado);
+          if (draft.concepts && draft.concepts.length > 0) setConcepts(draft.concepts);
+          setDraftRestored(true);
+        }
+      }
     }
     load();
-  }, []);
+  }, [quotationId, editId]);
+
+  // Auto-guardado de borrador en sessionStorage
+  useEffect(() => {
+    if (editId || quotationId) return;
+    if (!doNumber && !cliente && !ruta) return;
+    saveFormDraft('instruction_create', {
+      doNumber,
+      fechaCreacion,
+      comercial,
+      oferta,
+      cliente,
+      credito,
+      contacto,
+      facturarA,
+      telefono,
+      correo,
+      incoterm,
+      complemento,
+      modalidad,
+      ruta,
+      via,
+      tipoEmbarque,
+      comentarios,
+      estado,
+      concepts,
+    });
+  }, [editId, quotationId, doNumber, fechaCreacion, comercial, oferta, cliente, credito, contacto, facturarA, telefono, correo, incoterm, complemento, modalidad, ruta, via, tipoEmbarque, comentarios, estado, concepts]);
 
   const handleSelectThirdParty = (tp: ThirdParty) => {
     setCliente(tp.razon_social);
@@ -117,7 +240,7 @@ export const InstructionCreatePage: React.FC = () => {
   };
 
   const currentInstructionObject: ShippingInstruction = {
-    id: `inst-${Date.now()}`,
+    id: instructionId,
     do_number: doNumber,
     fecha_creacion: fechaCreacion,
     comercial,
@@ -148,6 +271,7 @@ export const InstructionCreatePage: React.FC = () => {
     setSaving(true);
     try {
       await ShippingInstructionService.saveInstruction(currentInstructionObject);
+      clearFormDraft('instruction_create');
       navigate('/instructions');
     } catch (err: any) {
       alert(err.message || 'Error al guardar la instrucción');
@@ -171,56 +295,79 @@ export const InstructionCreatePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-16">
+    <div className="space-y-5 sm:space-y-6 max-w-5xl mx-auto pb-16">
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/instructions')}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="erp-btn-secondary p-2"
+            aria-label="Volver a instrucciones"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              Nueva Instrucción de Embarque
-              <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
-                {doNumber || 'SIN DO'}
-              </span>
+            <h1 className="erp-page-title">
+              {isEditing ? `Editar Instrucción ${doNumber || ''}` : `Nueva Instrucción ${doNumber ? doNumber : ''}`.trim()}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Emisión de directrices operativas de tráfico, proveedores y conceptos con exportación a Excel oficial.
+            <p className="erp-page-subtitle">
+              Directrices operativas de transporte, itinerarios y conceptos.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={() => navigate(`/shipments/new?instructionId=${encodeURIComponent(instructionId)}`)}
+            className="erp-btn-secondary"
+            title="Crear o vincular expediente en Control de Tráfico"
+          >
+            <span className="text-blue-500 font-bold">DO</span>
+            <span className="hidden sm:inline">Abrir en Tráfico</span>
+          </button>
           <button onClick={handlePreviewPdf} className="erp-btn-secondary">
             <Eye className="w-4 h-4" />
-            <span>Vista Previa</span>
+            <span className="hidden sm:inline">Vista Previa</span>
           </button>
           <button onClick={handlePrintPdf} className="erp-btn-secondary">
             <Printer className="w-4 h-4" />
-            <span>Imprimir PDF</span>
+            <span className="hidden sm:inline">Imprimir PDF</span>
           </button>
           <button onClick={handleExportExcel} disabled={isExporting} className="erp-btn-secondary">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            <span>Excel (.xlsx)</span>
+            <FileSpreadsheet className="w-4 h-4" style={{ color: 'var(--color-success)' }} />
+            <span className="hidden sm:inline">Excel (.xlsx)</span>
           </button>
           <button onClick={handleSave} disabled={saving} className="erp-btn-primary">
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Guardando...' : 'Guardar'}</span>
+            <span>{saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Guardar'}</span>
           </button>
         </div>
       </div>
 
+      {draftRestored && (
+        <div className="erp-badge-emerald w-full p-3 rounded-xl flex items-center justify-between text-xs">
+          <span>Borrador de instrucción de embarque recuperado automáticamente. Tu avance está seguro.</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearFormDraft('instruction_create');
+              setDraftRestored(false);
+            }}
+            className="underline cursor-pointer text-[10px] ml-3 text-emerald-700 dark:text-emerald-300"
+          >
+            Descartar borrador
+          </button>
+        </div>
+      )}
+
       {/* SECCIÓN 1: DATOS GENERALES */}
       <div className="erp-card space-y-4">
-        <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800 pb-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider pb-2" style={{ color: 'var(--brand-orange-text)', borderBottom: '1px solid var(--border-default)' }}>
           1. Datos Generales de la Instrucción
         </h2>
 
-        <div className="p-3 bg-slate-800/40 border border-slate-700/60 rounded-xl space-y-2">
+        <div className="erp-card-subtle space-y-2">
           <label className="erp-label">Autocompletar Cliente desde Directorio de Terceros</label>
           <select
             onChange={(e) => {
@@ -238,7 +385,7 @@ export const InstructionCreatePage: React.FC = () => {
           </select>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="erp-label">Número DO *</label>
             <input
@@ -247,7 +394,8 @@ export const InstructionCreatePage: React.FC = () => {
               value={doNumber}
               onChange={(e) => setDoNumber(e.target.value.toUpperCase())}
               required
-              className="erp-input font-mono font-bold text-brand-orange"
+              className="erp-input font-mono font-bold"
+              style={{ color: 'var(--brand-orange)' }}
             />
           </div>
           <div>
@@ -260,7 +408,7 @@ export const InstructionCreatePage: React.FC = () => {
             />
           </div>
           <div>
-            <label className="erp-label"># Oferta / Cotización</label>
+            <label className="erp-label"># Cotización</label>
             <input
               type="text"
               placeholder="Ej: CS-2609-7"
@@ -307,7 +455,7 @@ export const InstructionCreatePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-800">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2" style={{ borderTop: '1px solid var(--border-default)' }}>
           <div>
             <label className="erp-label">Contacto Operativo</label>
             <input
@@ -336,7 +484,7 @@ export const InstructionCreatePage: React.FC = () => {
             />
           </div>
           <div>
-            <label className="erp-label">Correo Notificaciones</label>
+            <label className="erp-label">Correo de Notificaciones</label>
             <input
               type="email"
               value={correo}
@@ -349,7 +497,7 @@ export const InstructionCreatePage: React.FC = () => {
 
       {/* SECCIÓN 2: INFORMACIÓN DEL EMBARQUE */}
       <div className="erp-card space-y-4">
-        <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800 pb-2">
+        <h2 className="text-xs font-bold uppercase tracking-wider pb-2" style={{ color: 'var(--brand-orange-text)', borderBottom: '1px solid var(--border-default)' }}>
           2. Parámetros de Embarque y Transporte
         </h2>
 
@@ -440,114 +588,116 @@ export const InstructionCreatePage: React.FC = () => {
 
       {/* SECCIÓN 3: TABLA DE CONCEPTOS DE OPERACIONES */}
       <div className="erp-card space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
             3. Instrucciones de Operaciones & Costeo
           </h2>
-          <button onClick={handleAddConcept} className="erp-btn-primary py-1 text-[11px]">
+          <button onClick={handleAddConcept} className="erp-btn-primary py-1 px-3 text-[11px]">
             <Plus className="w-3.5 h-3.5" />
             <span>Agregar Concepto</span>
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+        <div className="erp-table-container">
+          <table className="erp-table">
             <thead>
-              <tr className="border-b border-slate-800 text-[10px] uppercase text-slate-400 font-bold">
-                <th className="p-2 text-left">Concepto</th>
-                <th className="p-2 text-center w-14">Vendido</th>
-                <th className="p-2 text-left">Proveedor</th>
-                <th className="p-2 text-center w-24">Pago</th>
-                <th className="p-2 text-right w-24">Costo</th>
-                <th className="p-2 text-center w-16">Moneda</th>
-                <th className="p-2 text-right w-24">Venta</th>
-                <th className="p-2 text-left w-36">Facturar A</th>
-                <th className="p-2 text-center w-10"></th>
+              <tr>
+                <th className="erp-th text-left">Concepto</th>
+                <th className="erp-th text-center w-14">Vendido</th>
+                <th className="erp-th text-left">Proveedor</th>
+                <th className="erp-th text-center w-24">Pago</th>
+                <th className="erp-th text-right w-24">Costo</th>
+                <th className="erp-th text-center w-16">Moneda</th>
+                <th className="erp-th text-right w-24">Venta</th>
+                <th className="erp-th text-left w-36">Facturar A</th>
+                <th className="erp-th text-center w-10"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody>
               {concepts.map((item, index) => (
-                <tr key={item.id} className="hover:bg-slate-800/30">
-                  <td className="p-1.5">
+                <tr key={item.id} className="erp-tr">
+                  <td className="erp-td">
                     <input
                       type="text"
                       placeholder="Concepto..."
                       value={item.concepto}
                       onChange={(e) => handleConceptChange(index, 'concepto', e.target.value)}
-                      className="erp-input p-1 font-bold text-white"
+                      className="erp-input p-1 font-bold text-xs"
                     />
                   </td>
-                  <td className="p-1.5 text-center">
+                  <td className="erp-td text-center">
                     <select
                       value={item.vendido}
                       onChange={(e) => handleConceptChange(index, 'vendido', parseInt(e.target.value, 10))}
-                      className="erp-select p-1 text-center font-bold"
+                      className="erp-select p-1 text-center font-bold text-xs"
                     >
                       <option value={1}>S</option>
                       <option value={0}>N</option>
                     </select>
                   </td>
-                  <td className="p-1.5">
+                  <td className="erp-td">
                     <input
                       type="text"
                       placeholder="Naviera/Aerolínea/Transportador"
                       value={item.proveedor || ''}
                       onChange={(e) => handleConceptChange(index, 'proveedor', e.target.value)}
-                      className="erp-input p-1"
+                      className="erp-input p-1 text-xs"
                     />
                   </td>
-                  <td className="p-1.5 text-center">
+                  <td className="erp-td text-center">
                     <select
                       value={item.forma_pago || 'Prepaid'}
                       onChange={(e) => handleConceptChange(index, 'forma_pago', e.target.value)}
-                      className="erp-select p-1 text-center font-semibold"
+                      className="erp-select p-1 text-center font-semibold text-xs"
                     >
                       <option value="Prepaid">Prepaid</option>
                       <option value="Collect">Collect</option>
                       <option value="N/A">N/A</option>
                     </select>
                   </td>
-                  <td className="p-1.5 text-right">
+                  <td className="erp-td text-right">
                     <input
                       type="text"
                       placeholder="0.00"
                       value={item.costo || ''}
                       onChange={(e) => handleConceptChange(index, 'costo', e.target.value)}
-                      className="erp-input p-1 text-right font-mono"
+                      className="erp-input p-1 text-right font-mono text-xs"
                     />
                   </td>
-                  <td className="p-1.5 text-center">
+                  <td className="erp-td text-center">
                     <select
                       value={item.moneda_costo || 'USD'}
                       onChange={(e) => handleConceptChange(index, 'moneda_costo', e.target.value)}
-                      className="erp-select p-1 font-mono text-center"
+                      className="erp-select p-1 font-mono text-center text-xs"
                     >
                       <option value="USD">USD</option>
                       <option value="COP">COP</option>
                       <option value="EUR">EUR</option>
                     </select>
                   </td>
-                  <td className="p-1.5 text-right">
+                  <td className="erp-td text-right">
                     <input
                       type="text"
                       placeholder="0.00"
                       value={item.venta || ''}
                       onChange={(e) => handleConceptChange(index, 'venta', e.target.value)}
-                      className="erp-input p-1 text-right font-mono font-bold text-emerald-400"
+                      className="erp-input p-1 text-right font-mono font-bold text-xs"
+                      style={{ color: 'var(--color-success)' }}
                     />
                   </td>
-                  <td className="p-1.5">
+                  <td className="erp-td">
                     <input
                       type="text"
                       value={item.facturar_a || ''}
                       onChange={(e) => handleConceptChange(index, 'facturar_a', e.target.value)}
-                      className="erp-input p-1"
+                      className="erp-input p-1 text-xs"
                     />
                   </td>
-                  <td className="p-1.5 text-center">
+                  <td className="erp-td text-center">
                     <button
                       onClick={() => handleRemoveConcept(index)}
-                      className="text-slate-500 hover:text-rose-400 p-1"
+                      className="erp-icon-btn hover:text-rose-500"
+                      title="Eliminar concepto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -561,7 +711,7 @@ export const InstructionCreatePage: React.FC = () => {
 
       {/* SECCIÓN 4: COMENTARIOS ADICIONALES */}
       <div className="erp-card space-y-3">
-        <h2 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
           4. Observaciones e Instrucciones Adicionales
         </h2>
         <textarea

@@ -149,11 +149,11 @@ export function generateOperationalUpdateEmail(shipment: Shipment, update: Parti
         <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#0F172A;">${shipment.origin} → ${shipment.destination}</td>
       </tr>
       <tr>
-        <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#64748B;font-weight:600;">Transportadora / M/N</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#64748B;font-weight:600;">Transportador</td>
         <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#0F172A;">${shipment.carrier || '--'} ${shipment.flight_vessel ? `(${shipment.flight_vessel})` : ''}</td>
       </tr>
       <tr style="background-color:#F8FAFC;">
-        <td style="padding:10px 14px;color:#64748B;font-weight:600;">ETA (Estimada Llegada)</td>
+        <td style="padding:10px 14px;color:#64748B;font-weight:600;">ETA</td>
         <td style="padding:10px 14px;color:#0F172A;font-weight:700;">${formatDateDisplay(shipment.eta)}</td>
       </tr>
     </table>
@@ -173,7 +173,7 @@ export function generateFreeDaysAlertEmail(shipment: Shipment, remainingDays: nu
     </h2>
 
     <p style="margin:0 0 20px 0;font-size:14px;line-height:1.6;color:#334155;">
-      Se notifica que el contenedor/embarque correspondiente al expediente <strong>${shipment.do_number}</strong>
+      Se notifica que el contenedor/carga correspondiente al expediente <strong>${shipment.do_number}</strong>
       se encuentra en condición de <strong>${isOverdue ? 'DÍAS LIBRES VENCIDOS (Generando demoras)' : `RIESGO DE DEMORAS (${remainingDays} días restantes)`}</strong>.
     </p>
 
@@ -187,7 +187,7 @@ export function generateFreeDaysAlertEmail(shipment: Shipment, remainingDays: nu
         </tr>
         <tr>
           <td style="padding-top:6px;font-size:12px;color:#475569;">
-            Días libres pactados con naviera/almacén: <strong>${shipment.free_days || 0} días</strong>.
+            Días libres con transportador/almacén: <strong>${shipment.free_days || 0} días</strong>.
           </td>
         </tr>
       </table>
@@ -200,7 +200,7 @@ export function generateFreeDaysAlertEmail(shipment: Shipment, remainingDays: nu
         <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#0F172A;font-weight:700;font-family:monospace;">${shipment.container_number || '--'}</td>
       </tr>
       <tr>
-        <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#64748B;font-weight:600;">Línea / Naviera</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#64748B;font-weight:600;">Transportador</td>
         <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#0F172A;font-weight:600;">${shipment.carrier || '--'}</td>
       </tr>
       <tr style="background-color:#F8FAFC;">
@@ -249,11 +249,11 @@ export function generateNewShipmentDispatchEmail(shipment: Shipment): string {
         <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#0F172A;">${shipment.origin} → ${shipment.destination}</td>
       </tr>
       <tr>
-        <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#64748B;font-weight:600;">ETD Estimada</td>
+        <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#64748B;font-weight:600;">ETD</td>
         <td style="padding:10px 14px;border-bottom:1px solid #E2E8F0;color:#0F172A;">${formatDateDisplay(shipment.etd)}</td>
       </tr>
       <tr style="background-color:#F8FAFC;">
-        <td style="padding:10px 14px;color:#64748B;font-weight:600;">ETA Estimada</td>
+        <td style="padding:10px 14px;color:#64748B;font-weight:600;">ETA</td>
         <td style="padding:10px 14px;color:#0F172A;font-weight:700;">${formatDateDisplay(shipment.eta)}</td>
       </tr>
     </table>

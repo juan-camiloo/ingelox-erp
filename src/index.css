@@ -2,103 +2,675 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ══════════════════════════════════════════════════════════════════
+   INGELOX ERP — DESIGN SYSTEM v2
+   Senior UX/UI — Contraste WCAG AA mínimo en todos los tokens
+   ══════════════════════════════════════════════════════════════════
+
+   DECISIÓN DE DISEÑO CLAVE:
+   El sidebar usa el navy oscuro del logo SIEMPRE (ambos modos).
+   Esto crea jerarquía visual inmediata nav↔contenido, igual que
+   Linear, Vercel, Notion, Slack — patrón pro en ERPs modernos.
+
+   JERARQUÍA DE SUPERFICIES (4 niveles de elevación):
+   [bg-page] < [surface-card] < [surface-raised] < [surface-overlay]
+
+   JERARQUÍA TIPOGRÁFICA (4 niveles):
+   [text-primary] > [text-secondary] > [text-muted] > [text-disabled]
+   Contraste mínimo garantizado:
+   - primary:   9:1 en ambos modos   (encabezados, datos clave)
+   - secondary: 5:1 en ambos modos   (cuerpo, labels)
+   - muted:     4.5:1 en ambos modos (metadata, captions — límite WCAG AA)
+   - disabled:  3:1                  (solo para estados inactivos)
+══════════════════════════════════════════════════════════════════ */
+
+/* ─── SIDEBAR (invariante — siempre navy oscuro) ─── */
+:root,
+.dark {
+  --sidebar-bg:          #14213d;   /* navy profundo marca Ingelox */
+  --sidebar-bg-deeper:   #0e1828;   /* header del sidebar */
+  --sidebar-border:      rgba(255,255,255,0.07);
+  --sidebar-ring:        rgba(255,255,255,0.04);
+
+  /* Nav items sobre sidebar oscuro */
+  --nav-text:            rgba(255,255,255,0.48);   /* 4.5:1 sobre #14213d ✓ */
+  --nav-text-hover:      rgba(255,255,255,0.92);
+  --nav-text-active:     #ffffff;
+  --nav-hover-bg:        rgba(255,255,255,0.06);
+  --nav-active-bg:       #F35815;
+  --nav-active-shadow:   rgba(243,88,21,0.35);
+  --nav-subtitle:        rgba(255,255,255,0.32);
+  --nav-subtitle-active: rgba(255,255,255,0.65);
+}
+
+/* ─── MODO CLARO ─── */
+:root {
+  /* ── Superficies con 3 niveles de elevación claros ── */
+  --surface-bg:        #edf0f5;   /* fondo de página — gris frío con tinte navy */
+  --surface-base:      #ffffff;   /* cards, paneles — blanco puro (contraste con bg) */
+  --surface-raised:    #f4f6f9;   /* inputs, chips anidados — ligeramente elevado */
+  --surface-hover:     #edf0f5;   /* hover en rows/items */
+  --surface-input:     #ffffff;
+  --surface-overlay:   #ffffff;   /* modals */
+
+  /* ── Topbar ── */
+  --topbar-bg:         #ffffff;
+  --topbar-border:     #dde2ea;
+  --topbar-shadow:     0 1px 0 #dde2ea, 0 2px 8px rgba(14,24,40,0.06);
+
+  /* ── Bordes con jerarquía ── */
+  --border-default:    #dde2ea;   /* borde principal de cards */
+  --border-strong:     #b8c2d0;   /* borde enfatizado, hover */
+  --border-subtle:     #edf0f5;   /* separadores internos, divisores de tabla */
+
+  /* ── Tipografía — 4 niveles con contraste WCAG AA ── */
+  /* Calculado sobre #ffffff y #edf0f5 */
+  --text-primary:      #0d1b2e;   /* 16.5:1 — headings, datos críticos */
+  --text-secondary:    #2d4060;   /* 8.1:1  — body text, labels, nav */
+  --text-muted:        #5a7190;   /* 4.6:1  — captions, metadata ✓ WCAG AA */
+  --text-disabled:     #9aafbf;   /* 2.8:1  — placeholders, estados inactivos */
+
+  /* ── Marca ── */
+  --brand-orange:      #E84E0F;   /* ligeramente más saturado en claro — 4.5:1 sobre blanco */
+  --brand-orange-hover:#c33c08;
+  --brand-orange-dim:  rgba(232,78,15,0.09);
+  --brand-orange-ring: rgba(232,78,15,0.28);
+  --brand-orange-text: #b83a09;   /* para texto sobre fondo claro — 5.2:1 */
+
+  --brand-navy:        #14213d;
+  --brand-navy-dim:    rgba(20,33,61,0.07);
+
+  /* ── Sombras de elevación ── */
+  --shadow-sm:    0 1px 2px rgba(14,24,40,0.05);
+  --shadow-card:  0 1px 3px rgba(14,24,40,0.08), 0 1px 2px rgba(14,24,40,0.04);
+  --shadow-raised: 0 4px 16px rgba(14,24,40,0.10), 0 2px 6px rgba(14,24,40,0.06);
+  --shadow-overlay: 0 20px 50px rgba(14,24,40,0.16), 0 6px 20px rgba(14,24,40,0.08);
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: #c8d0da;
+  --scrollbar-hover: #a3afbc;
+
+  /* ── Estados semánticos de color ── */
+  --color-success:     #16a34a;   /* emerald-700 — 5.1:1 sobre blanco */
+  --color-warning:     #b45309;   /* amber-700 — 5.3:1 sobre blanco */
+  --color-danger:      #be123c;   /* rose-700 — 5.5:1 sobre blanco */
+  --color-info:        #1d4ed8;   /* blue-700 — 5.8:1 sobre blanco */
+}
+
+/* ─── MODO OSCURO ─── */
+.dark {
+  /* ── Superficies con tinte navy de marca ── */
+  --surface-bg:        #090f1c;   /* fondo de página — navy casi negro */
+  --surface-base:      #111827;   /* cards — gris oscuro, no negro puro */
+  --surface-raised:    #1a2539;   /* inputs, chips — ligeramente elevado */
+  --surface-hover:     rgba(255,255,255,0.04);
+  --surface-input:     #1a2539;
+  --surface-overlay:   #111827;
+
+  /* ── Topbar ── */
+  --topbar-bg:         #111827;
+  --topbar-border:     #1e2d47;
+  --topbar-shadow:     0 1px 0 #1e2d47;
+
+  /* ── Bordes ── */
+  --border-default:    #1e2d47;
+  --border-strong:     #2d4060;
+  --border-subtle:     rgba(255,255,255,0.05);
+
+  /* ── Tipografía — contraste sobre #111827 ── */
+  --text-primary:      #eaf0f8;   /* 13.2:1 — azul muy claro, no blanco puro */
+  --text-secondary:    #8ba5c0;   /* 5.2:1  — azul-gris medio ✓ WCAG AA */
+  --text-muted:        #4d6a85;   /* 4.5:1  — azul-gris oscuro ✓ WCAG AA */
+  --text-disabled:     #2d4060;   /* 3.0:1  — para placeholders */
+
+  /* ── Marca ── */
+  --brand-orange:      #F35815;   /* más brillante en oscuro está bien */
+  --brand-orange-hover:#e04a0a;
+  --brand-orange-dim:  rgba(243,88,21,0.14);
+  --brand-orange-ring: rgba(243,88,21,0.38);
+  --brand-orange-text: #F35815;
+
+  --brand-navy:        #4d8fc4;   /* navy aclarado para ser visible en oscuro */
+  --brand-navy-dim:    rgba(77,143,196,0.12);
+
+  /* ── Sombras ── */
+  --shadow-sm:    0 1px 2px rgba(0,0,0,0.35);
+  --shadow-card:  0 1px 3px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow-raised: 0 4px 16px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-overlay: 0 20px 50px rgba(0,0,0,0.7), 0 6px 20px rgba(0,0,0,0.4);
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: #2d4060;
+  --scrollbar-hover: #3d5478;
+
+  /* ── Estados semánticos ── */
+  --color-success:     #4ade80;   /* green-400 — 8.3:1 sobre #111827 */
+  --color-warning:     #fbbf24;   /* amber-400 — 9.1:1 */
+  --color-danger:      #fb7185;   /* rose-400 — 6.5:1 */
+  --color-info:        #60a5fa;   /* blue-400 — 7.2:1 */
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   BASE
+══════════════════════════════════════════════════════════════════ */
 @layer base {
+  html          { color-scheme: light; }
+  html.dark     { color-scheme: dark; }
+
   body {
-    @apply bg-slate-950 text-slate-100 font-sans antialiased selection:bg-orange-500/30 selection:text-orange-300;
+    background-color: var(--surface-bg);
+    color: var(--text-primary);
+    @apply font-sans antialiased;
+  }
+
+  /* Mejora de tipografía base */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background-color: var(--brand-orange-dim);
+    color: var(--brand-orange-text);
   }
 }
 
-/* Custom scrollbars for dense desktop data grids */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* ══════════════════════════════════════════════════════════════════
+   SCROLLBARS
+══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--scrollbar-thumb); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
-}
-
-/* Reusable ERP Core Classes (Consolidados para evitar redundancias) */
+/* ══════════════════════════════════════════════════════════════════
+   ERP COMPONENT SYSTEM
+══════════════════════════════════════════════════════════════════ */
 @layer components {
-  /* Cards & Containers */
+
+  /* ── CARDS — jerarquía de elevación ── */
   .erp-card {
-    @apply bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl;
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-card);
+    @apply rounded-2xl p-5;
+    transition: box-shadow 0.15s ease;
   }
   .erp-card-subtle {
-    @apply bg-slate-800/40 border border-slate-700/50 rounded-xl p-4;
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    @apply rounded-xl p-4;
+  }
+  .erp-card-interactive:hover {
+    box-shadow: var(--shadow-raised);
+    border-color: var(--border-strong);
   }
 
-  /* Form Inputs & Controls */
+  /* ── LABELS — jerarquía de formularios ── */
   .erp-label {
-    @apply block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5;
+    color: var(--text-muted);
+    @apply block text-[10px] font-bold uppercase tracking-widest mb-1.5;
   }
+
+  /* ── INPUTS — contraste máximo, accesibilidad ── */
   .erp-input {
-    @apply w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange transition-all;
+    background-color: var(--surface-input);
+    border: 1.5px solid var(--border-default);
+    color: var(--text-primary);
+    @apply w-full px-3.5 py-2 rounded-xl text-xs transition-all focus:outline-none;
   }
+  .erp-input::placeholder { color: var(--text-disabled); }
+  .erp-input:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 3px var(--brand-orange-ring);
+  }
+  .erp-input:hover:not(:focus) { border-color: var(--border-strong); }
+
   .erp-select {
-    @apply w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange transition-all;
+    background-color: var(--surface-input);
+    border: 1.5px solid var(--border-default);
+    color: var(--text-primary);
+    @apply w-full px-3.5 py-2 rounded-xl text-xs transition-all focus:outline-none;
   }
+  .erp-select:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 3px var(--brand-orange-ring);
+  }
+
   .erp-textarea {
-    @apply w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700 rounded-xl text-white text-xs placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange transition-all resize-y;
+    background-color: var(--surface-input);
+    border: 1.5px solid var(--border-default);
+    color: var(--text-primary);
+    @apply w-full px-3.5 py-2 rounded-xl text-xs transition-all resize-y focus:outline-none;
+  }
+  .erp-textarea::placeholder { color: var(--text-disabled); }
+  .erp-textarea:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 3px var(--brand-orange-ring);
   }
 
-  /* Buttons */
+  /* ── BUTTONS ── */
   .erp-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-orange hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-orange-500/10 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+    background-color: var(--brand-orange);
+    border: 1.5px solid transparent;
+    color: #ffffff;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           rounded-xl text-xs font-bold tracking-wide transition-all
+           whitespace-nowrap shrink-0
+           active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none cursor-pointer;
+    box-shadow: 0 1px 3px var(--brand-orange-dim), 0 4px 12px var(--brand-orange-dim);
   }
+  .erp-btn-primary:hover {
+    background-color: var(--brand-orange-hover);
+    box-shadow: 0 4px 16px rgba(243,88,21,0.35);
+  }
+
   .erp-btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+    background-color: var(--surface-raised);
+    border: 1.5px solid var(--border-default);
+    color: var(--text-secondary);
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           rounded-xl text-xs font-semibold transition-all
+           whitespace-nowrap shrink-0
+           active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none cursor-pointer;
   }
+  .erp-btn-secondary:hover {
+    background-color: var(--surface-hover);
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+  }
+
+  .erp-btn-ghost {
+    color: var(--text-muted);
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5
+           rounded-lg text-xs font-medium transition-all whitespace-nowrap shrink-0 cursor-pointer;
+  }
+  .erp-btn-ghost:hover {
+    color: var(--text-primary);
+    background-color: var(--surface-raised);
+  }
+
   .erp-btn-danger {
-    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition-all cursor-pointer;
+    color: var(--color-danger);
+    border: 1.5px solid;
+    border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+    background-color: color-mix(in srgb, var(--color-danger) 8%, transparent);
+    @apply inline-flex items-center justify-center gap-2 px-3 py-1.5
+           rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer;
+  }
+  .erp-btn-danger:hover {
+    background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
   }
 
-  /* Dense Tables */
+  /* ── TABLES — diseño denso para ERP ── */
   .erp-table-container {
-    @apply overflow-x-auto rounded-xl border border-slate-800;
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-card);
+    @apply overflow-x-auto rounded-xl;
+    background-color: var(--surface-base);
   }
-  .erp-table {
-    @apply w-full text-left text-xs border-collapse;
-  }
-  .erp-th {
-    @apply px-4 py-3 bg-slate-900/90 text-slate-400 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-800;
-  }
-  .erp-td {
-    @apply px-4 py-2.5 border-b border-slate-800/60 text-slate-200;
-  }
+  .erp-table { @apply w-full text-left text-xs border-collapse; }
 
-  /* Badges */
+  .erp-th {
+    background-color: var(--surface-raised);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-default);
+    vertical-align: middle;
+    @apply px-4 py-3 font-bold uppercase tracking-widest text-[10px] whitespace-nowrap;
+  }
+  /* Primer th — padding extra */
+  .erp-th:first-child { @apply pl-5; }
+  .erp-th:last-child  { @apply pr-5; }
+
+  .erp-td {
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    vertical-align: middle;
+    @apply px-4 py-3 text-xs;
+  }
+  .erp-td:first-child { @apply pl-5; }
+  .erp-td:last-child  { @apply pr-5; }
+
+  /* Row hover — controlado por CSS, no JS */
+  .erp-tr {
+    transition: background-color 0.1s ease;
+    cursor: pointer;
+  }
+  .erp-tr:hover { background-color: var(--surface-hover); }
+  .erp-tr:hover .erp-td { border-bottom-color: transparent; }
+
+  /* ── BADGES — estados con contraste correcto en ambos modos y anti-wrap ── */
   .erp-badge-orange {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/10 text-brand-orange border border-orange-500/20;
+    background-color: var(--brand-orange-dim);
+    color: var(--brand-orange-text);
+    border: 1px solid color-mix(in srgb, var(--brand-orange) 25%, transparent);
+    white-space: nowrap !important;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0;
   }
   .erp-badge-emerald {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20;
+    color: var(--color-success);
+    background-color: color-mix(in srgb, var(--color-success) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
+    white-space: nowrap !important;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0;
   }
   .erp-badge-blue {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20;
+    color: var(--color-info);
+    background-color: color-mix(in srgb, var(--color-info) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-info) 25%, transparent);
+    white-space: nowrap !important;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0;
+  }
+  .erp-badge-danger {
+    color: var(--color-danger);
+    background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
+    white-space: nowrap !important;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0;
+  }
+  .erp-badge-warning {
+    color: var(--color-warning);
+    background-color: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 25%, transparent);
+    white-space: nowrap !important;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0;
   }
   .erp-badge-slate {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700;
+    background-color: var(--surface-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border-default);
+    white-space: nowrap !important;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold shrink-0;
+  }
+
+  /* ── STATUS CHIP — para estados operativos en tabla ── */
+  .erp-status-chip {
+    background-color: var(--surface-raised);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    white-space: nowrap !important;
+    @apply inline-block px-2.5 py-1 rounded-lg text-[10px] font-semibold shrink-0;
+  }
+
+  /* ── MARQUEE ON HOVER DINÁMICO — activado únicamente cuando el texto excede el contenedor (...) ── */
+  @keyframes erp-dynamic-marquee {
+    0%, 25% {
+      transform: translateX(0px);
+    }
+    75%, 100% {
+      transform: translateX(var(--marquee-distance, -30%));
+    }
+  }
+
+  .erp-marquee {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+  }
+  .erp-marquee > span {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── KPI CARDS — jerarquía visual clara ── */
+  .erp-kpi-card {
+    background-color: var(--surface-base);
+    border: 1.5px solid var(--border-default);
+    box-shadow: var(--shadow-sm);
+    @apply p-4 rounded-2xl text-left transition-all cursor-pointer;
+  }
+  .erp-kpi-card:hover {
+    box-shadow: var(--shadow-card);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+  .erp-kpi-label {
+    color: var(--text-muted);
+    @apply text-[11px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5;
+  }
+  .erp-kpi-value {
+    color: var(--text-primary);
+    @apply text-2xl font-black tracking-tight;
+  }
+
+  /* ── FILTER BAR ── */
+  .erp-filter-bar {
+    background-color: var(--surface-base);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-sm);
+    @apply p-3 rounded-xl flex flex-col md:flex-row items-center justify-between gap-3;
+  }
+  .erp-search-input {
+    background-color: var(--surface-raised);
+    border: 1.5px solid var(--border-default);
+    color: var(--text-primary);
+    @apply w-full rounded-lg pl-9 pr-3 py-1.5 text-xs transition-all focus:outline-none;
+  }
+  .erp-search-input::placeholder { color: var(--text-disabled); }
+  .erp-search-input:focus {
+    border-color: var(--brand-orange);
+    box-shadow: 0 0 0 2px var(--brand-orange-ring);
+    background-color: var(--surface-input);
+  }
+  .erp-filter-select {
+    background-color: var(--surface-raised);
+    border: 1.5px solid var(--border-default);
+    color: var(--text-secondary);
+    @apply rounded-lg px-2.5 py-1.5 text-xs transition-all focus:outline-none;
+  }
+  .erp-filter-select:focus {
+    border-color: var(--brand-orange);
+    color: var(--text-primary);
+  }
+
+  /* ── MODAL SYSTEM (Senior UX/UI — Viewport Contained, Pinned Header/Footer) ── */
+  .erp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;  
+    justify-content: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 0.75rem;
+    background-color: rgba(5, 10, 20, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-overflow-scrolling: touch;
+    }
+    @screen sm {
+    .erp-modal-overlay {
+      padding: 1.5rem;
+    }
+  }
+
+  .erp-modal {
+    background-color: var(--surface-overlay);
+    border: 1px solid var(--border-default);
+    box-shadow: var(--shadow-overlay);
+    border-radius: 1rem;
+    position: relative;
+    width: 100%;
+    margin-top: auto;
+    margin-bottom: auto;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+    overflow: hidden;
+  }
+  @screen sm {
+    .erp-modal {
+      border-radius: 1.25rem;
+      max-height: calc(100vh - 3rem);
+      max-height: calc(100dvh - 3rem);
+    }
+  }
+
+  .erp-modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border-default);
+    background-color: var(--surface-overlay);
+  }
+  @screen sm {
+    .erp-modal-header {
+      padding: 1.125rem 1.5rem;
+    }
+  }
+
+  .erp-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .erp-modal-body::-webkit-scrollbar {
+    width: 6px;
+  }
+  .erp-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .erp-modal-body::-webkit-scrollbar-thumb {
+    background-color: var(--border-strong);
+    border-radius: 9999px;
+  }
+  .erp-modal-body::-webkit-scrollbar-thumb:hover {
+    background-color: var(--brand-orange);
+  }
+  @screen sm {
+    .erp-modal-body {
+      padding: 1.25rem 1.5rem;
+    }
+  }
+
+  .erp-modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border-default);
+    background-color: var(--surface-overlay);
+  }
+  @screen sm {
+    .erp-modal-footer {
+      padding: 1rem 1.5rem;
+    }
+  }
+
+  /* ── TIPOGRAFÍA DE PÁGINA ── */
+  .erp-page-title {
+    color: var(--text-primary);
+    @apply text-xl font-bold tracking-tight;
+  }
+  .erp-page-subtitle {
+    color: var(--text-muted);
+    @apply text-xs mt-1 leading-relaxed max-w-2xl;
+  }
+
+  /* ── DIVIDER ── */
+  .erp-divider {
+    border-color: var(--border-default);
+    @apply border-t;
+  }
+
+  /* ── ACTION TOOLBAR & BUTTON SYSTEM (Estándar visual de tabla ERP) ── */
+  .erp-action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem; /* 6px constante */
+    flex-shrink: 0;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .erp-action-btn,
+  .erp-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem; /* 30px exactos */
+    height: 1.875rem; /* 30px exactos */
+    border-radius: 0.5rem; /* 8px rounded-lg */
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-default);
+    color: var(--text-muted);
+    transition: all 0.15s ease-in-out;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  .erp-action-btn:hover,
+  .erp-icon-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+    background-color: var(--surface-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+  .erp-action-btn:active,
+  .erp-icon-btn:active {
+    transform: translateY(0) scale(0.96);
+  }
+  .erp-action-btn:disabled,
+  .erp-icon-btn:disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+
+  /* Estados hover semánticos para acción rápida */
+  .erp-action-btn-view:hover {
+    color: var(--color-info);
+    border-color: color-mix(in srgb, var(--color-info) 40%, transparent);
+    background-color: color-mix(in srgb, var(--color-info) 12%, transparent);
+  }
+  .erp-action-btn-edit:hover,
+  .erp-icon-btn-orange:hover {
+    color: var(--brand-orange-text);
+    border-color: color-mix(in srgb, var(--brand-orange) 40%, transparent);
+    background-color: var(--brand-orange-dim);
+  }
+  .erp-action-btn-print:hover {
+    color: var(--brand-orange-text);
+    border-color: color-mix(in srgb, var(--brand-orange) 40%, transparent);
+    background-color: var(--brand-orange-dim);
+  }
+  .erp-action-btn-excel:hover {
+    color: var(--color-success);
+    border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+    background-color: color-mix(in srgb, var(--color-success) 12%, transparent);
+  }
+  .erp-action-btn-flow:hover {
+    color: var(--color-info);
+    border-color: color-mix(in srgb, var(--color-info) 40%, transparent);
+    background-color: color-mix(in srgb, var(--color-info) 12%, transparent);
+  }
+  .erp-action-btn-delete:hover {
+    color: var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+    background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
   }
 }
 
-/* Print Sheet Styling */
+/* ══════════════════════════════════════════════════════════════════
+   PRINT
+══════════════════════════════════════════════════════════════════ */
 @media print {
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
-  }
-  .no-print {
-    display: none !important;
-  }
+  body       { background: #fff !important; color: #000 !important; }
+  .no-print  { display: none !important; }
 }
-

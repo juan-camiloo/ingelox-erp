@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import ExcelJS from 'exceljs';
-import type { ShippingInstruction, ShippingInstructionConcept } from '../types/practiko';
+import type { ShippingInstruction, ShippingInstructionConcept } from '../types/commercial';
 
 const HEADER_CELL_MAP: Record<string, string> = {
   fecha_creacion: 'D4',
@@ -93,12 +93,20 @@ export function useExcelGenerator() {
           let formaPago = concept.forma_pago || '';
           if (formaPago === 'CONTADO') formaPago = 'Prepaid';
           if (formaPago === 'CREDITO') formaPago = 'Collect';
+          if (formaPago === 'CONSIGNACION') formaPago = 'N/A';
 
           writeCellValue(sheet, `C${rowNum}`, concept.concepto || '');
           writeCellValue(sheet, `D${rowNum}`, concept.proveedor || '');
           writeCellValue(sheet, `F${rowNum}`, formaPago);
-          writeCellValue(sheet, `H${rowNum}`, concept.costo ? Number(concept.costo) || concept.costo : '');
-          writeCellValue(sheet, `J${rowNum}`, concept.venta ? Number(concept.venta) || concept.venta : '');
+
+          // Costo con moneda correcta
+          const costoNum = concept.costo ? Number(String(concept.costo).replace(/[^\d.-]/g, '')) : NaN;
+          writeCellValue(sheet, `H${rowNum}`, !isNaN(costoNum) && costoNum !== 0 ? costoNum : concept.costo || '');
+
+          // Venta con moneda correcta
+          const ventaNum = concept.venta ? Number(String(concept.venta).replace(/[^\d.-]/g, '')) : NaN;
+          writeCellValue(sheet, `J${rowNum}`, !isNaN(ventaNum) && ventaNum !== 0 ? ventaNum : concept.venta || '');
+
           writeCellValue(sheet, `K${rowNum}`, concept.facturar_a || '');
         }
       });

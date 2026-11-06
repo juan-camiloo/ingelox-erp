@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -8,7 +9,6 @@ import {
   FileText,
   Clock,
   Building,
-  Upload,
   Download,
   Trash2,
   Plus,
@@ -18,8 +18,11 @@ import {
   MessageSquare,
   FileCheck,
   Mail,
-  Copy
+  Copy,
+  Building2,
+  Plane,
 } from 'lucide-react';
+import { PreviewPill } from '../components/common/PreviewPill';
 import { supabase } from '../lib/supabase';
 import type {
   Shipment,
@@ -97,7 +100,7 @@ export const ShipmentDetailPage: React.FC = () => {
   const handleOpenMailClient = () => {
     if (!shipment) return;
     const subject = encodeURIComponent(`[INGELOX OPERACIONES] Reporte de Tráfico DO #${shipment.do_number} - ${shipment.consignee || ''}`);
-    const body = encodeURIComponent(`Estimado cliente,\n\nSe adjunta el reporte oficial de estado para el expediente DO #${shipment.do_number}.\n\nOrigen: ${shipment.origin}\nDestino: ${shipment.destination}\nLínea/Naviera: ${shipment.carrier || '--'}\nEstado actual: ${getShipmentStatusLabel(shipment.current_status)}\nETA: ${formatDateDisplay(shipment.eta)}\n\nSaludos cordiales,\nIngelox Logistics SAS\nCentro Operativo de Tráfico`);
+    const body = encodeURIComponent(`Estimado cliente,\n\nSe adjunta el reporte oficial de estado para el expediente DO #${shipment.do_number}.\n\nOrigen: ${shipment.origin}\nDestino: ${shipment.destination}\nTransportador: ${shipment.carrier || '--'}\nEstado actual: ${getShipmentStatusLabel(shipment.current_status)}\nETA: ${formatDateDisplay(shipment.eta)}\n\nSaludos cordiales,\nIngelox Logistics SAS\nCentro Operativo de Tráfico`);
     window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
   };
 
@@ -120,7 +123,7 @@ export const ShipmentDetailPage: React.FC = () => {
       // Initialize edit form
       setFormData({
         do_number: sData.do_number || '',
-        shipment_type: sData.shipment_type || 'maritime',
+        shipment_type: sData.shipment_type || '',
         current_status: sData.current_status || '',
         exporter: sData.exporter || '',
         consignee: sData.consignee || '',
@@ -130,7 +133,7 @@ export const ShipmentDetailPage: React.FC = () => {
         flight_vessel: sData.flight_vessel || '',
         air_waybill: sData.air_waybill || '',
         container_number: sData.container_number || '',
-        incoterm: sData.incoterm || 'FOB',
+        incoterm: sData.incoterm || '',
         cargo_type: sData.cargo_type || 'general',
         free_days: sData.free_days !== null ? String(sData.free_days) : '',
         inspection_status: sData.inspection_status || 'none',
@@ -230,7 +233,6 @@ export const ShipmentDetailPage: React.FC = () => {
 
       if (updErr) throw updErr;
 
-      // Si el estado cambió, registrar en novedades
       if (formData.current_status !== shipment.current_status) {
         await supabase.from('shipment_updates').insert({
           shipment_id: id,
@@ -242,7 +244,7 @@ export const ShipmentDetailPage: React.FC = () => {
         });
       }
 
-      setSuccessMessage('Expediente actualizado exitosamente.');
+      setSuccessMessage('Carga actualizada exitosamente.');
       setIsEditing(false);
       await loadShipmentData();
     } catch (err: any) {
@@ -308,14 +310,12 @@ export const ShipmentDetailPage: React.FC = () => {
       const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const storagePath = `${id}/${Date.now()}_${sanitizedName}`;
 
-      // Upload to supabase storage bucket 'documents'
       const { data: uploadData, error: uploadErr } = await supabase.storage
         .from('documents')
         .upload(storagePath, file, { cacheControl: '3600', upsert: false });
 
       if (uploadErr) throw uploadErr;
 
-      // Insert record in documents table
       const { error: dbErr } = await supabase
         .from('documents')
         .insert({
@@ -407,9 +407,9 @@ export const ShipmentDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-orange" />
-        <span className="text-xs">Cargando expediente de tráfico...</span>
+      <div className="py-24 flex flex-col items-center justify-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--brand-orange)' }} />
+        <span>Cargando expediente de tráfico...</span>
       </div>
     );
   }
@@ -417,11 +417,12 @@ export const ShipmentDetailPage: React.FC = () => {
   if (!shipment) {
     return (
       <div className="py-20 text-center space-y-3">
-        <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto" />
-        <h2 className="text-lg font-bold text-white">Expediente no encontrado</h2>
+        <AlertTriangle className="w-10 h-10 mx-auto" style={{ color: 'var(--color-danger)' }} />
+        <h2 className="erp-page-title text-lg">Carga no encontrada</h2>
         <button
           onClick={() => navigate('/operations')}
-          className="text-xs text-brand-orange hover:underline"
+          className="erp-btn-ghost text-xs"
+          style={{ color: 'var(--brand-orange-text)' }}
         >
           Volver a Operaciones
         </button>
@@ -435,45 +436,76 @@ export const ShipmentDetailPage: React.FC = () => {
   const freeDaysInfo = calculateFreeDaysRemaining(shipment.ata || shipment.eta, shipment.free_days);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-5 sm:space-y-6">
       {/* Header bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-5 rounded-2xl shadow-xl">
+      <div className="erp-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/operations')}
-            className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="erp-btn-secondary p-2"
+            aria-label="Volver a Control de Tráfico"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white font-mono">{shipment.do_number}</h1>
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                  opType === 'expo'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                }`}
-              >
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="erp-page-title font-mono">{shipment.do_number}</h1>
+              <span className={opType === 'expo' ? 'erp-badge-blue' : 'erp-badge-emerald'}>
                 {opType === 'expo' ? 'Exportación' : 'Importación'}
               </span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+              <span className="erp-badge-slate">
                 {getShipmentStatusLabel(shipment.current_status)}
               </span>
+
+              <PreviewPill
+                label={`${assignedCompanies.length} ${assignedCompanies.length === 1 ? 'Empresa' : 'Empresas'}`}
+                icon={Building2}
+                variant="orange"
+                title="Empresas con Acceso al Portal"
+                subtitle={`DO: ${shipment.do_number}`}
+                modalTitle={`Empresas Vinculadas — ${shipment.do_number}`}
+                emptyMessage="No hay empresas vinculadas a este embarque."
+                items={assignedCompanies.map((c) => ({
+                  id: c.id,
+                  title: c.name,
+                  subtitle: c.nit ? `NIT: ${c.nit}` : undefined,
+                  icon: Building2,
+                  badge: { text: 'Portal', variant: 'blue' },
+                  onClick: () => navigate(`/clients?search=${encodeURIComponent(c.name)}`),
+                }))}
+              />
+
+              <PreviewPill
+                label={`${documents.length} ${documents.length === 1 ? 'Doc' : 'Docs'}`}
+                icon={FileText}
+                variant="slate"
+                title="Bóveda de Documentos"
+                subtitle={`DO: ${shipment.do_number}`}
+                modalTitle={`Documentos Digitales — ${shipment.do_number}`}
+                emptyMessage="No hay documentos subidos en este embarque."
+                items={documents.map((d) => ({
+                  id: d.id,
+                  title: d.file_name,
+                  subtitle: `${(d.file_size / 1024).toFixed(1)} KB`,
+                  meta: d.created_at ? new Date(d.created_at).toLocaleDateString('es-CO') : undefined,
+                  icon: FileText,
+                  badge: { text: d.file_name.split('.').pop()?.toUpperCase() || 'FILE', variant: 'slate' },
+                }))}
+              />
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="erp-page-subtitle">
               {shipment.consignee || shipment.exporter || 'Sin cliente asignado'} • {shipment.origin} → {shipment.destination}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 flex-wrap">
           {isEditing ? (
             <>
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="px-3.5 py-1.5 rounded-xl border border-slate-700 text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="erp-btn-secondary"
               >
                 Cancelar
               </button>
@@ -481,7 +513,7 @@ export const ShipmentDetailPage: React.FC = () => {
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="flex items-center gap-1.5 px-4 py-1.5 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-orange/20 transition-all cursor-pointer"
+                className="erp-btn-primary"
               >
                 {saving ? (
                   <>
@@ -501,26 +533,37 @@ export const ShipmentDetailPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAddUpdate(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+                className="erp-btn-secondary"
               >
-                <Plus className="w-3.5 h-3.5 text-brand-orange" />
+                <Plus className="w-3.5 h-3.5" style={{ color: 'var(--brand-orange)' }} />
                 <span>Novedad</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowReportModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+                className="erp-btn-secondary"
               >
-                <Mail className="w-3.5 h-3.5 text-sky-400" />
+                <Mail className="w-3.5 h-3.5" style={{ color: 'var(--color-info)' }} />
                 <span>Emitir Reporte</span>
               </button>
+              {shipment.shipment_type === 'air' && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/awb/new?shipmentId=${shipment.id}`)}
+                  className="erp-btn-secondary"
+                  title="Generar Guía Aérea (AWB)"
+                >
+                  <Plane className="w-3.5 h-3.5 text-[#ff6600]" />
+                  <span>Generar AWB</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold border border-slate-700 transition-all cursor-pointer"
+                className="erp-btn-primary"
               >
                 <Edit2 className="w-3.5 h-3.5" />
-                <span>Editar Expediente</span>
+                <span>Editar carga</span>
               </button>
             </>
           )}
@@ -529,30 +572,30 @@ export const ShipmentDetailPage: React.FC = () => {
 
       {/* Messages */}
       {errorMessage && (
-        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+        <div className="erp-badge-danger w-full p-3.5 rounded-xl justify-start text-xs flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
       {successMessage && (
-        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+        <div className="erp-badge-emerald w-full p-3.5 rounded-xl justify-start text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{successMessage}</span>
         </div>
       )}
 
       {/* Main Grid: Left = Details/Form, Right = Timeline & Documents */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         {/* LEFT COLUMN: Data Details (2 Cols on lg) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
           {/* General Information Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 text-brand-orange">
+          <div className="erp-card space-y-4">
+            <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
+              <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--brand-orange-text)' }}>
                 <FileText className="w-4 h-4" /> Especificaciones de Carga y Ruta
               </h2>
               {isEditing && (
-                <span className="text-[10px] text-brand-orange font-semibold bg-brand-orange/10 px-2 py-0.5 rounded">
+                <span className="erp-badge-orange text-[10px]">
                   Modo Edición Activo
                 </span>
               )}
@@ -560,23 +603,23 @@ export const ShipmentDetailPage: React.FC = () => {
 
             {isEditing ? (
               /* EDIT MODE FORM */
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">DO / Referencia</label>
+                  <label className="erp-label">DO / Referencia</label>
                   <input
                     type="text"
                     value={formData.do_number}
                     onChange={(e) => setFormData({ ...formData, do_number: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono uppercase"
+                    className="erp-input font-mono uppercase font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Modo de Transporte</label>
+                  <label className="erp-label">Modo de Transporte</label>
                   <select
                     value={formData.shipment_type}
                     onChange={(e) => setFormData({ ...formData, shipment_type: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-select"
                   >
                     <option value="maritime">Marítimo</option>
                     <option value="air">Aéreo</option>
@@ -585,11 +628,11 @@ export const ShipmentDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Estado Operativo</label>
+                  <label className="erp-label">Estado Operativo</label>
                   <select
                     value={formData.current_status}
                     onChange={(e) => setFormData({ ...formData, current_status: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-select"
                   >
                     {statusOptions.map((st) => (
                       <option key={st.value} value={st.value}>
@@ -600,11 +643,11 @@ export const ShipmentDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Incoterm</label>
+                  <label className="erp-label">Incoterm</label>
                   <select
                     value={formData.incoterm}
                     onChange={(e) => setFormData({ ...formData, incoterm: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-select font-mono"
                   >
                     {INCOTERMS.map((t) => (
                       <option key={t} value={t}>{t}</option>
@@ -613,151 +656,151 @@ export const ShipmentDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Exportador</label>
+                  <label className="erp-label">Exportador</label>
                   <input
                     type="text"
                     value={formData.exporter}
                     onChange={(e) => setFormData({ ...formData, exporter: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Consignatario</label>
+                  <label className="erp-label">Consignatario</label>
                   <input
                     type="text"
                     value={formData.consignee}
                     onChange={(e) => setFormData({ ...formData, consignee: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Origen</label>
+                  <label className="erp-label">Origen</label>
                   <input
                     type="text"
                     value={formData.origin}
                     onChange={(e) => setFormData({ ...formData, origin: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Destino</label>
+                  <label className="erp-label">Destino</label>
                   <input
                     type="text"
                     value={formData.destination}
                     onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Línea / Naviera</label>
+                  <label className="erp-label">Transportador</label>
                   <input
                     type="text"
                     value={formData.carrier}
                     onChange={(e) => setFormData({ ...formData, carrier: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Motonave / Vuelo</label>
+                  <label className="erp-label">Motonave / Vuelo / Placa</label>
                   <input
                     type="text"
                     value={formData.flight_vessel}
                     onChange={(e) => setFormData({ ...formData, flight_vessel: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Guía / Booking / Master</label>
+                  <label className="erp-label">Documento de Transporte / Booking</label>
                   <input
                     type="text"
                     value={formData.air_waybill}
                     onChange={(e) => setFormData({ ...formData, air_waybill: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Contenedor(es)</label>
+                  <label className="erp-label">Contenedor(es)</label>
                   <input
                     type="text"
                     value={formData.container_number}
                     onChange={(e) => setFormData({ ...formData, container_number: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white uppercase"
+                    className="erp-input font-mono uppercase"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">ETD (Estimada Salida)</label>
+                  <label className="erp-label">ETD</label>
                   <input
                     type="date"
                     value={formData.etd}
                     onChange={(e) => setFormData({ ...formData, etd: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">ETA (Estimada Llegada)</label>
+                  <label className="erp-label">ETA</label>
                   <input
                     type="date"
                     value={formData.eta}
                     onChange={(e) => setFormData({ ...formData, eta: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">ATD (Real Salida)</label>
+                  <label className="erp-label">ATD</label>
                   <input
                     type="datetime-local"
                     value={formData.atd}
                     onChange={(e) => setFormData({ ...formData, atd: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">ATA (Real Llegada)</label>
+                  <label className="erp-label">ATA</label>
                   <input
                     type="datetime-local"
                     value={formData.ata}
                     onChange={(e) => setFormData({ ...formData, ata: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Cutoff Documental</label>
+                  <label className="erp-label">Cutoff Documental</label>
                   <input
                     type="datetime-local"
                     value={formData.documentary_cutoff}
                     onChange={(e) => setFormData({ ...formData, documentary_cutoff: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Días Libres Pactados</label>
+                  <label className="erp-label">Días Libres</label>
                   <input
                     type="number"
                     value={formData.free_days}
                     onChange={(e) => setFormData({ ...formData, free_days: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-input font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Tipo de Carga</label>
+                  <label className="erp-label">Tipo de Carga</label>
                   <select
                     value={formData.cargo_type}
                     onChange={(e) => setFormData({ ...formData, cargo_type: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-select"
                   >
                     {CARGO_TYPES.map((ct) => (
                       <option key={ct.value} value={ct.value}>{ct.label}</option>
@@ -766,11 +809,11 @@ export const ShipmentDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Inspección Aduanera</label>
+                  <label className="erp-label">Inspección Aduanera</label>
                   <select
                     value={formData.inspection_status}
                     onChange={(e) => setFormData({ ...formData, inspection_status: e.target.value })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                    className="erp-select"
                   >
                     {INSPECTION_STATUSES.map((is) => (
                       <option key={is.value} value={is.value}>{is.label}</option>
@@ -780,121 +823,148 @@ export const ShipmentDetailPage: React.FC = () => {
               </div>
             ) : (
               /* READ VIEW GRID */
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 text-xs">
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Exportador</span>
-                  <span className="text-white font-semibold text-sm">{shipment.exporter || '--'}</span>
+                  <span className="erp-label mb-0.5">Exportador</span>
+                  <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.exporter || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Consignatario</span>
-                  <span className="text-white font-semibold text-sm">{shipment.consignee || '--'}</span>
+                  <span className="erp-label mb-0.5">Consignatario</span>
+                  <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.consignee || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Ruta de Transporte</span>
-                  <span className="text-white font-medium">{shipment.origin} → {shipment.destination}</span>
+                  <span className="erp-label mb-0.5">Ruta de Transporte</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.origin} → {shipment.destination}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Línea / Naviera</span>
-                  <span className="text-white font-medium">{shipment.carrier || '--'}</span>
+                  <span className="erp-label mb-0.5">Transportador</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.carrier || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Motonave / Vuelo</span>
-                  <span className="text-white font-medium">{shipment.flight_vessel || '--'}</span>
+                  <span className="erp-label mb-0.5">Motonave / Vuelo / Placa</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.flight_vessel || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Guía / Booking</span>
-                  <span className="text-white font-medium font-mono">{shipment.air_waybill || '--'}</span>
+                  <span className="erp-label mb-0.5">Documento de Transporte / Booking</span>
+                  <span className="font-medium font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.air_waybill || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Contenedor(es)</span>
-                  <span className="text-white font-medium font-mono">{shipment.container_number || '--'}</span>
+                  <span className="erp-label mb-0.5">Contenedor(es)</span>
+                  <span className="font-medium font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.container_number || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Incoterm & Carga</span>
-                  <span className="text-white font-medium">{shipment.incoterm || '--'} • {shipment.cargo_type || '--'}</span>
+                  <span className="erp-label mb-0.5">Incoterm & Carga</span>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.incoterm || '--'} • {shipment.cargo_type || '--'}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Días Libres de Almacén</span>
-                  <span className="text-white font-medium">
+                  <span className="erp-label mb-0.5">Días Libres</span>
+                  <span className="font-medium">
                     {freeDaysInfo ? (
-                      <span className={freeDaysInfo.isOverdue ? 'text-rose-400 font-bold' : freeDaysInfo.isExpiringSoon ? 'text-amber-400' : 'text-emerald-400'}>
-                        {freeDaysInfo.remainingDays} días restantes ({shipment.free_days} pactados)
+                      <span style={{ color: freeDaysInfo.isOverdue ? 'var(--color-danger)' : freeDaysInfo.isExpiringSoon ? 'var(--color-warning)' : 'var(--color-success)', fontWeight: freeDaysInfo.isOverdue ? 'bold' : 'normal' }}>
+                        {freeDaysInfo.remainingDays} Días restantes ({shipment.free_days} pactados)
                       </span>
                     ) : shipment.free_days ? (
-                      `${shipment.free_days} días`
+                      `${shipment.free_days} Días`
                     ) : (
                       '--'
                     )}
                   </span>
                 </div>
 
-                <div className="border-t border-slate-800 pt-3">
-                  <span className="text-slate-400 block mb-0.5">ETD (Estimada Salida)</span>
-                  <span className="text-white font-medium">{formatDateDisplay(shipment.etd)}</span>
+                <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <span className="erp-label mb-0.5">ETD</span>
+                  <span className="font-medium font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {formatDateDisplay(shipment.etd)}
+                  </span>
                 </div>
 
-                <div className="border-t border-slate-800 pt-3">
-                  <span className="text-slate-400 block mb-0.5">ETA (Estimada Llegada)</span>
+                <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <span className="erp-label mb-0.5">ETA</span>
                   <div className="flex items-center gap-1.5">
-                    <span className={`font-medium ${overdue ? 'text-rose-400 font-bold' : 'text-white'}`}>
+                    <span className="font-medium font-mono" style={{ color: overdue ? 'var(--color-danger)' : 'var(--text-primary)', fontWeight: overdue ? 'bold' : 'normal' }}>
                       {formatDateDisplay(shipment.eta)}
                     </span>
                     {overdue && (
-                      <span className="text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.2 rounded font-bold">
+                      <span className="erp-badge-danger text-[9px] px-1.5 py-0.2">
                         VENCIDO
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="border-t border-slate-800 pt-3">
-                  <span className="text-slate-400 block mb-0.5">ATD (Real Salida)</span>
-                  <span className="text-white font-medium">{formatDateTimeDisplay(shipment.atd)}</span>
+                <div className="pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <span className="erp-label mb-0.5">ATD</span>
+                  <span className="font-medium font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {formatDateTimeDisplay(shipment.atd)}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">ATA (Real Llegada)</span>
-                  <span className="text-white font-medium">{formatDateTimeDisplay(shipment.ata)}</span>
+                  <span className="erp-label mb-0.5">ATA</span>
+                  <span className="font-medium font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {formatDateTimeDisplay(shipment.ata)}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Cutoff Documental</span>
-                  <span className="text-white font-medium">{formatDateTimeDisplay(shipment.documentary_cutoff)}</span>
+                  <span className="erp-label mb-0.5">Cutoff Documental</span>
+                  <span className="font-medium font-mono" style={{ color: 'var(--text-primary)' }}>
+                    {formatDateTimeDisplay(shipment.documentary_cutoff)}
+                  </span>
                 </div>
 
                 <div>
-                  <span className="text-slate-400 block mb-0.5">Inspección Aduanera</span>
-                  <span className="text-white font-medium capitalize">{shipment.inspection_status || 'Sin inspección'}</span>
+                  <span className="erp-label mb-0.5">Inspección Aduanera</span>
+                  <span className="font-medium capitalize" style={{ color: 'var(--text-primary)' }}>
+                    {shipment.inspection_status || 'Sin inspección'}
+                  </span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Companies Assignment Section */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 text-brand-orange">
-                <Building className="w-4 h-4" /> Empresas Asociadas al Expediente
+          <div className="erp-card space-y-4">
+            <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
+              <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--brand-orange-text)' }}>
+                <Building className="w-4 h-4" /> Empresas Asociadas a la carga
               </h2>
               <button
                 type="button"
                 onClick={() => setShowAssignModal(true)}
-                className="flex items-center gap-1 text-xs text-brand-orange hover:text-orange-400 font-semibold cursor-pointer"
+                className="erp-btn-ghost text-xs font-semibold"
+                style={{ color: 'var(--brand-orange-text)' }}
               >
                 <Plus className="w-3.5 h-3.5" /> Vincular Empresa
               </button>
             </div>
 
             {assignedCompanies.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">
+              <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>
                 Ninguna empresa está vinculada a esta carga. Los clientes de empresas asignadas podrán verla en su portal.
               </p>
             ) : (
@@ -902,16 +972,16 @@ export const ShipmentDetailPage: React.FC = () => {
                 {assignedCompanies.map((comp) => (
                   <div
                     key={comp.id}
-                    className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between gap-2"
+                    className="erp-card-subtle p-3 flex items-center justify-between gap-2"
                   >
                     <div>
-                      <div className="text-xs font-bold text-white">{comp.name}</div>
-                      <div className="text-[10px] text-slate-400">NIT: {comp.nit || 'N/A'}</div>
+                      <div className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{comp.name}</div>
+                      <div className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>NIT: {comp.nit || 'N/A'}</div>
                     </div>
                     <button
                       onClick={() => handleRemoveCompany(comp.id)}
                       title="Desvincular empresa"
-                      className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10"
+                      className="erp-icon-btn hover:text-rose-500"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -923,20 +993,19 @@ export const ShipmentDetailPage: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: Digital Documents & Updates Timeline */}
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6">
           {/* DIGITAL DOCUMENTS VAULT */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 text-brand-orange">
-                <FileCheck className="w-4 h-4" /> Expediente Digital ({documents.length})
+          <div className="erp-card space-y-4">
+            <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
+              <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--brand-orange-text)' }}>
+                <FileCheck className="w-4 h-4" /> Documentos ({documents.length})
               </h2>
-              <label className="flex items-center gap-1.5 px-3 py-1 bg-brand-orange hover:bg-orange-600 text-white rounded-lg text-xs font-semibold cursor-pointer transition-all">
-                {uploadingDoc ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Upload className="w-3.5 h-3.5" />
-                )}
-                <span>Subir Doc</span>
+              <label 
+                className="erp-btn-ghost text-xs font-semibold" 
+                style={{ color: 'var(--brand-orange-text)' }}>
+
+                <Plus className="w-3.5 h-3.5" /> Subir
+
                 <input
                   type="file"
                   onChange={handleFileUpload}
@@ -947,36 +1016,44 @@ export const ShipmentDetailPage: React.FC = () => {
             </div>
 
             {documents.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs">
-                No hay documentos subidos para este DO.
+              <div
+                className="text-center py-6 rounded-xl text-xs"
+                style={{
+                  border: '1px dashed var(--border-default)',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                No hay documentos subidos para esta carga.
               </div>
             ) : (
               <div className="space-y-2">
                 {documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="p-2.5 rounded-xl bg-slate-800/50 border border-slate-700/60 flex items-center justify-between gap-2 hover:bg-slate-800 transition-colors"
+                    className="erp-card-subtle p-2.5 flex items-center justify-between gap-2 transition-colors"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-medium text-slate-200 truncate" title={doc.file_name}>
+                      <div className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }} title={doc.file_name}>
                         {doc.file_name}
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                         {Math.round(doc.file_size / 1024)} KB
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="erp-action-group">
                       <button
                         onClick={() => handleDownloadDoc(doc)}
-                        title="Ver / Descargar"
-                        className="p-1 rounded text-slate-400 hover:text-brand-orange"
+                        title="Ver / Descargar documento"
+                        className="erp-action-btn erp-action-btn-view"
+                        aria-label="Descargar"
                       >
                         <Download className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteDoc(doc)}
-                        title="Eliminar"
-                        className="p-1 rounded text-slate-400 hover:text-rose-400"
+                        title="Eliminar documento adjunto"
+                        className="erp-action-btn erp-action-btn-delete"
+                        aria-label="Eliminar"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -988,39 +1065,51 @@ export const ShipmentDetailPage: React.FC = () => {
           </div>
 
           {/* TIMELINE OF UPDATES / REPORTES */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 text-brand-orange">
+          <div className="erp-card space-y-4">
+            <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
+              <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--brand-orange-text)' }}>
                 <Clock className="w-4 h-4" /> Historial de Novedades ({updates.length})
               </h2>
               <button
                 onClick={() => setShowAddUpdate(true)}
-                className="text-xs text-brand-orange hover:text-orange-400 font-semibold flex items-center gap-1 cursor-pointer"
+                className="erp-btn-ghost text-xs font-semibold"
+                style={{ color: 'var(--brand-orange-text)' }}
               >
                 <Plus className="w-3.5 h-3.5" /> Reportar
               </button>
             </div>
 
             {updates.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">
+              <p className="text-xs text-center py-6" style={{ color: 'var(--text-muted)' }}>
                 Sin eventos u observaciones registradas.
               </p>
             ) : (
-              <div className="relative pl-4 space-y-4 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800">
+              <div
+                className="relative pl-4 space-y-4 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5"
+                style={{ '--tw-before-bg': 'var(--border-default)' } as any}
+              >
                 {updates.map((upd) => (
                   <div key={upd.id} className="relative group text-xs">
-                    <div className="absolute -left-4 top-1.5 w-2 h-2 rounded-full bg-brand-orange ring-4 ring-slate-900" />
-                    <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-3 space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span className="font-semibold text-brand-orange">
+                    <div
+                      className="absolute -left-4 top-1.5 w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: 'var(--brand-orange)',
+                        boxShadow: '0 0 0 4px var(--surface-base)',
+                      }}
+                    />
+                    <div className="erp-card-subtle p-3 space-y-1">
+                      <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                        <span className="font-semibold" style={{ color: 'var(--brand-orange-text)' }}>
                           {getShipmentStatusLabel(upd.status)}
                         </span>
                         <span>{formatDateTimeDisplay(upd.created_at)}</span>
                       </div>
-                      <p className="text-slate-200 text-xs leading-relaxed">{upd.observation || upd.description || '--'}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                        {upd.observation || upd.description || '--'}
+                      </p>
                       {upd.location && (
-                        <div className="text-[10px] text-slate-400 italic">
-                          📍 {upd.location}
+                        <div className="text-[10px] italic" style={{ color: 'var(--text-muted)' }}>
+                          {upd.location}
                         </div>
                       )}
                     </div>
@@ -1033,122 +1122,141 @@ export const ShipmentDetailPage: React.FC = () => {
       </div>
 
       {/* MODAL: ADD UPDATE / NOVEDAD */}
-      {showAddUpdate && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
-            <button
-              onClick={() => setShowAddUpdate(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-brand-orange" /> Registrar Novedad de Tráfico
-            </h3>
-            <form onSubmit={handleAddUpdate} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Cambiar Estado Operativo (Opcional)
-                </label>
-                <select
-                  value={newUpdateStatus}
-                  onChange={(e) => setNewUpdateStatus(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                >
-                  <option value="">Mantener estado actual ({getShipmentStatusLabel(shipment.current_status)})</option>
-                  {statusOptions.map((st) => (
-                    <option key={st.value} value={st.value}>
-                      Paso {st.step}: {st.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Ubicación actual
-                </label>
-                <input
-                  type="text"
-                  value={newUpdateLocation}
-                  onChange={(e) => setNewUpdateLocation(e.target.value)}
-                  placeholder="Ej: Patio de Contenedores Cartagena"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Descripción del Evento *
-                </label>
-                <textarea
-                  required
-                  rows={4}
-                  value={newUpdateDesc}
-                  onChange={(e) => setNewUpdateDesc(e.target.value)}
-                  placeholder="Detalla el hito alcanzado, novedades de la naviera, inspección o retraso..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2.5 pt-2">
+      {showAddUpdate &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="erp-modal-overlay" onClick={() => setShowAddUpdate(false)}>
+            <div className="erp-modal w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="erp-modal-header">
+                <h3 className="erp-page-title text-base flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-orange)' }} />
+                  Registrar Novedad de Tráfico
+                </h3>
                 <button
-                  type="button"
                   onClick={() => setShowAddUpdate(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                  className="erp-icon-btn"
+                  aria-label="Cerrar modal"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingNewUpdate}
-                  className="px-4 py-2 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-orange/20"
-                >
-                  {savingNewUpdate ? 'Registrando...' : 'Registrar Novedad'}
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              <form onSubmit={handleAddUpdate} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="erp-modal-body space-y-4">
+                  <div>
+                    <label className="erp-label">
+                      Cambiar Estado Operativo (Opcional)
+                    </label>
+                    <select
+                      value={newUpdateStatus}
+                      onChange={(e) => setNewUpdateStatus(e.target.value)}
+                      className="erp-select"
+                    >
+                      <option value="">Mantener estado actual ({getShipmentStatusLabel(shipment.current_status)})</option>
+                      {statusOptions.map((st) => (
+                        <option key={st.value} value={st.value}>
+                          Paso {st.step}: {st.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="erp-label">
+                      Ubicación actual
+                    </label>
+                    <input
+                      type="text"
+                      value={newUpdateLocation}
+                      onChange={(e) => setNewUpdateLocation(e.target.value)}
+                      placeholder="Ej: Patio de Contenedores Cartagena"
+                      className="erp-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="erp-label">
+                      Descripción del Evento *
+                    </label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={newUpdateDesc}
+                      onChange={(e) => setNewUpdateDesc(e.target.value)}
+                      placeholder="Detalla el hito alcanzado, novedades de la naviera, inspección o retraso..."
+                      className="erp-textarea"
+                    />
+                  </div>
+                </div>
+
+                <div className="erp-modal-footer">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUpdate(false)}
+                    className="erp-btn-secondary"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingNewUpdate}
+                    className="erp-btn-primary"
+                  >
+                    {savingNewUpdate ? 'Registrando...' : 'Registrar Novedad'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* MODAL: ASSIGN COMPANY */}
-      {showAssignModal && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
-            <button
-              onClick={() => setShowAssignModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <Building className="w-5 h-5 text-brand-orange" /> Vincular Empresa a la Carga
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Selecciona la Empresa
-                </label>
-                <select
-                  value={selectedCompanyToAssign}
-                  onChange={(e) => setSelectedCompanyToAssign(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white"
+      {/* MODAL: ASSIGN COMPANY */}
+      {showAssignModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="erp-modal-overlay" onClick={() => setShowAssignModal(false)}>
+            <div className="erp-modal w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+              <div className="erp-modal-header">
+                <h3 className="erp-page-title text-base flex items-center gap-2">
+                  <Building className="w-5 h-5 shrink-0" style={{ color: 'var(--brand-orange)' }} />
+                  Vincular Empresa a la Carga
+                </h3>
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="erp-icon-btn"
+                  aria-label="Cerrar modal"
                 >
-                  <option value="">Selecciona una empresa...</option>
-                  {allCompanies.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.nit ? `(${c.nit})` : ''}
-                    </option>
-                  ))}
-                </select>
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2">
+              <div className="erp-modal-body space-y-4">
+                <div>
+                  <label className="erp-label">
+                    Selecciona la Empresa
+                  </label>
+                  <select
+                    value={selectedCompanyToAssign}
+                    onChange={(e) => setSelectedCompanyToAssign(e.target.value)}
+                    className="erp-select"
+                  >
+                    <option value="">Selecciona una empresa...</option>
+                    {allCompanies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.nit ? `(${c.nit})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="erp-modal-footer">
                 <button
                   type="button"
                   onClick={() => setShowAssignModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                  className="erp-btn-secondary"
                 >
                   Cancelar
                 </button>
@@ -1156,90 +1264,100 @@ export const ShipmentDetailPage: React.FC = () => {
                   type="button"
                   onClick={handleAssignCompany}
                   disabled={!selectedCompanyToAssign}
-                  className="px-4 py-2 bg-brand-orange hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md shadow-brand-orange/20"
+                  className="erp-btn-primary"
                 >
                   Vincular
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* MODAL: INSTITUTIONAL EMAIL REPORT PREVIEW */}
-      {showReportModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl relative overflow-hidden">
-            {/* Header */}
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-brand-orange/20 text-brand-orange flex items-center justify-center font-bold">
-                  <Mail className="w-4 h-4" />
+      {showReportModal &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="erp-modal-overlay" onClick={() => setShowReportModal(false)}>
+            <div className="erp-modal w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="erp-modal-header">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold shrink-0"
+                    style={{
+                      backgroundColor: 'var(--brand-orange-dim)',
+                      color: 'var(--brand-orange-text)',
+                    }}
+                  >
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="erp-page-title text-base">Reporte Operativo Institucional</h3>
+                    <p className="erp-page-subtitle">
+                      Plantilla oficial Ingelox ERP • DO #{shipment.do_number}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Reporte Operativo Institucional</h3>
-                  <p className="text-xs text-slate-400">
-                    Plantilla oficial Ingelox ERP • DO #{shipment.do_number}
-                  </p>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="erp-icon-btn"
+                  aria-label="Cerrar vista previa"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Preview Box */}
+              <div className="erp-modal-body" style={{ backgroundColor: 'var(--surface-bg)' }}>
+                <div className="rounded-xl overflow-hidden shadow-inner" style={{ border: '1px solid var(--border-default)' }}>
+                  <iframe
+                    title="Vista Previa de Correo"
+                    srcDoc={generateOperationalUpdateEmail(
+                      shipment,
+                      updates[0] || { status: shipment.current_status || 'activo', description: 'Operación en tránsito y seguimiento' },
+                      { recipientName: shipment.consignee || 'Cliente' }
+                    )}
+                    className="w-full h-[380px] bg-white border-0"
+                  />
                 </div>
               </div>
-              <button
-                onClick={() => setShowReportModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Preview Box */}
-            <div className="flex-1 p-5 overflow-y-auto bg-slate-950 custom-scrollbar">
-              <div className="border border-slate-800 rounded-xl overflow-hidden shadow-inner">
-                <iframe
-                  title="Vista Previa de Correo"
-                  srcDoc={generateOperationalUpdateEmail(
-                    shipment,
-                    updates[0] || { status: shipment.current_status || 'activo', description: 'Operación en tránsito y seguimiento' },
-                    { recipientName: shipment.consignee || 'Cliente' }
+              {/* Actions Footer */}
+              <div className="erp-modal-footer flex-col sm:flex-row justify-between">
+                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {copiedStatus === 'html' ? (
+                    <span className="font-semibold flex items-center gap-1" style={{ color: 'var(--color-success)' }}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> ¡Código HTML copiado al portapapeles!
+                    </span>
+                  ) : (
+                    <span>Diseño exclusivo para operaciones corporativas.</span>
                   )}
-                  className="w-full h-[380px] bg-white border-0"
-                />
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={handleCopyHtmlReport}
+                    className="erp-btn-secondary"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar HTML</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenMailClient}
+                    className="erp-btn-primary"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Abrir en Correo</span>
+                  </button>
+                </div>
               </div>
             </div>
-
-            {/* Actions Footer */}
-            <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between gap-3">
-              <div className="text-xs text-slate-400">
-                {copiedStatus === 'html' ? (
-                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> ¡Código HTML copiado al portapapeles!
-                  </span>
-                ) : (
-                  <span>Diseño exclusivo para operaciones corporativas.</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyHtmlReport}
-                  className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copiar HTML</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleOpenMailClient}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-brand-orange hover:bg-orange-600 text-white text-xs font-semibold rounded-xl shadow-md shadow-brand-orange/20 transition-all cursor-pointer"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Abrir en Correo</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
