@@ -331,16 +331,23 @@ export const QuotationService = {
       total_iva: 47,
       total: 1032,
       moneda: 'USD',
+      trm_usd: 4150,
+      trm_eur: 4500,
+      monedas_mostrar: ['USD', 'COP'],
+      totales_normalizados: {
+        USD: { subtotal: 985.00, total_iva: 47.00, total: 1032.00 },
+        COP: { subtotal: 4087750.00, total_iva: 195050.00, total: 4282800.00 },
+      },
       estado: 'enviada',
       items: [
-        { id: '1', orden: 1, cantidad: 1, concepto: 'IN - TRANSPORTE TERRESTRE URBANO', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 0, total: 75 },
-        { id: '2', orden: 2, cantidad: 1, concepto: 'IN - FLETE AÉREO INTERNACIONAL', valor_unitario: 380, porcentaje_descuento: 0, subtotal: 380, iva: 0, total: 380 },
-        { id: '3', orden: 3, cantidad: 1, concepto: 'IN - MANEJO AEROLINEA DUE CARRIER', valor_unitario: 60, porcentaje_descuento: 0, subtotal: 60, iva: 0, total: 60 },
-        { id: '4', orden: 4, cantidad: 1, concepto: 'IN - ELABORACION FORMULARIO DE MERCANCIAS PELIGROSAS', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 14, total: 89 },
-        { id: '5', orden: 5, cantidad: 1, concepto: 'IN - ELABORACION DE GUIA AEREA', valor_unitario: 50, porcentaje_descuento: 0, subtotal: 50, iva: 10, total: 60 },
-        { id: '6', orden: 6, cantidad: 1, concepto: 'IN - INSPECCIÓN DE SEGURIDAD', valor_unitario: 120, porcentaje_descuento: 0, subtotal: 120, iva: 23, total: 143 },
-        { id: '7', orden: 7, cantidad: 1, concepto: 'IN - RECARGO AEROLINEA POR CARGA PELIGROSA', valor_unitario: 150, porcentaje_descuento: 0, subtotal: 150, iva: 0, total: 150 },
-        { id: '8', orden: 8, cantidad: 1, concepto: 'IN - MANEJO INGELOX', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 14, total: 89 },
+        { id: '1', orden: 1, cantidad: 1, concepto: 'IN - TRANSPORTE TERRESTRE URBANO', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 0, total: 75, moneda: 'USD' },
+        { id: '2', orden: 2, cantidad: 1, concepto: 'IN - FLETE AÉREO INTERNACIONAL', valor_unitario: 380, porcentaje_descuento: 0, subtotal: 380, iva: 0, total: 380, moneda: 'USD' },
+        { id: '3', orden: 3, cantidad: 1, concepto: 'IN - MANEJO AEROLINEA DUE CARRIER', valor_unitario: 60, porcentaje_descuento: 0, subtotal: 60, iva: 0, total: 60, moneda: 'USD' },
+        { id: '4', orden: 4, cantidad: 1, concepto: 'IN - ELABORACION FORMULARIO DE MERCANCIAS PELIGROSAS', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 14, total: 89, moneda: 'USD' },
+        { id: '5', orden: 5, cantidad: 1, concepto: 'IN - ELABORACION DE GUIA AEREA', valor_unitario: 50, porcentaje_descuento: 0, subtotal: 50, iva: 10, total: 60, moneda: 'USD' },
+        { id: '6', orden: 6, cantidad: 1, concepto: 'IN - INSPECCIÓN DE SEGURIDAD', valor_unitario: 120, porcentaje_descuento: 0, subtotal: 120, iva: 23, total: 143, moneda: 'USD' },
+        { id: '7', orden: 7, cantidad: 1, concepto: 'IN - RECARGO AEROLINEA POR CARGA PELIGROSA', valor_unitario: 150, porcentaje_descuento: 0, subtotal: 150, iva: 0, total: 150, moneda: 'USD' },
+        { id: '8', orden: 8, cantidad: 1, concepto: 'IN - MANEJO INGELOX', valor_unitario: 75, porcentaje_descuento: 0, subtotal: 75, iva: 14, total: 89, moneda: 'USD' },
       ],
     };
 
@@ -368,40 +375,75 @@ export const QuotationService = {
 
   async saveQuotation(quote: Quotation): Promise<Quotation> {
     const list = await this.getQuotations();
-    const index = list.findIndex((q) => q.id === quote.id);
+    const quotationId = isValidUuid(quote.id) ? quote.id : generateUuid();
+    const fullQuote: Quotation = {
+      ...quote,
+      id: quotationId,
+      trm_usd: quote.trm_usd ?? null,
+      trm_eur: quote.trm_eur ?? null,
+      monedas_mostrar: quote.monedas_mostrar && quote.monedas_mostrar.length > 0 ? quote.monedas_mostrar : [quote.moneda || 'USD'],
+      totales_normalizados: quote.totales_normalizados || {},
+      updated_at: new Date().toISOString(),
+    };
 
     try {
       await supabase.from('quotations').upsert({
-        id: quote.id,
-        consecutivo: quote.consecutivo,
-        fecha: quote.fecha,
-        validez: quote.validez,
-        forma_pago: quote.forma_pago,
-        vendedor: quote.vendedor,
-        atencion: quote.atencion,
-        tercero_id: quote.tercero_id,
-        cliente_nombre: quote.cliente_nombre,
-        cliente_nit: quote.cliente_nit,
-        cliente_direccion: quote.cliente_direccion,
-        cliente_telefono: quote.cliente_telefono,
-        observaciones: quote.observaciones,
-        subtotal: quote.subtotal,
-        total_iva: quote.total_iva,
-        total: quote.total,
-        moneda: quote.moneda,
-        estado: quote.estado,
-        updated_at: new Date().toISOString(),
+        id: quotationId,
+        consecutivo: fullQuote.consecutivo,
+        fecha: fullQuote.fecha,
+        validez: fullQuote.validez,
+        forma_pago: fullQuote.forma_pago,
+        vendedor: fullQuote.vendedor,
+        atencion: fullQuote.atencion,
+        tercero_id: isValidUuid(fullQuote.tercero_id) ? fullQuote.tercero_id : null,
+        cliente_nombre: fullQuote.cliente_nombre,
+        cliente_nit: fullQuote.cliente_nit,
+        cliente_direccion: fullQuote.cliente_direccion,
+        cliente_telefono: fullQuote.cliente_telefono,
+        observaciones: fullQuote.observaciones,
+        subtotal: fullQuote.subtotal,
+        total_iva: fullQuote.total_iva,
+        total: fullQuote.total,
+        moneda: fullQuote.moneda,
+        estado: fullQuote.estado,
+        trm_usd: fullQuote.trm_usd,
+        trm_eur: fullQuote.trm_eur,
+        monedas_mostrar: fullQuote.monedas_mostrar,
+        totales_normalizados: fullQuote.totales_normalizados,
+        updated_at: fullQuote.updated_at,
       });
-    } catch {}
 
+      if (fullQuote.items && fullQuote.items.length > 0) {
+        // Sincronizar ítems con moneda independiente
+        await supabase.from('quotation_items').delete().eq('quotation_id', quotationId);
+        const itemsPayload = fullQuote.items.map((it, idx) => ({
+          id: isValidUuid(it.id) ? it.id : generateUuid(),
+          quotation_id: quotationId,
+          orden: idx + 1,
+          cantidad: it.cantidad,
+          concepto: it.concepto,
+          valor_unitario: it.valor_unitario,
+          porcentaje_descuento: it.porcentaje_descuento || 0,
+          subtotal: it.subtotal,
+          iva: it.iva,
+          total: it.total,
+          moneda: it.moneda || fullQuote.moneda || 'USD',
+        }));
+        await supabase.from('quotation_items').insert(itemsPayload);
+      }
+    } catch (err) {
+      console.warn('Advertencia al sincronizar cotización en Supabase:', err);
+    }
+
+    const index = list.findIndex((q) => q.id === quotationId || q.consecutivo === fullQuote.consecutivo);
     if (index >= 0) {
-      list[index] = quote;
+      list[index] = fullQuote;
     } else {
-      list.unshift(quote);
+      list.unshift(fullQuote);
     }
 
     localStorage.setItem(STORAGE_KEYS.quotations, JSON.stringify(list));
-    return quote;
+    return fullQuote;
   },
 
   async getQuotationById(id: string): Promise<Quotation | null> {

@@ -8,6 +8,9 @@ import {
   Trash2,
   ArrowLeft,
   FileSpreadsheet,
+  Coins,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 import type { Quotation, QuotationItem, ThirdParty, BillingConcept } from '../types/commercial';
 import {
@@ -51,12 +54,17 @@ export const QuotationCreatePage: React.FC = () => {
   // Catálogo de conceptos
   const [billingConcepts, setBillingConcepts] = useState<BillingConcept[]>([]);
 
-  // Ítems cotizados
+  // Ítems cotizados (cada uno con su moneda independiente)
   const [items, setItems] = useState<QuotationItem[]>([]);
 
   const [moneda, setMoneda] = useState<'USD' | 'COP' | 'EUR'>('USD');
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Normalización multimoneda y TRM
+  const [monedasMostrar, setMonedasMostrar] = useState<('USD' | 'COP' | 'EUR')[]>(['USD']);
+  const [trmUsd, setTrmUsd] = useState<number>(4150);
+  const [trmEur, setTrmEur] = useState<number>(4500);
 
   const applyThirdParty = useCallback((p: ThirdParty) => {
     setSelectedThirdPartyId(p.id);
@@ -96,10 +104,24 @@ export const QuotationCreatePage: React.FC = () => {
           setClienteNit(existing.cliente_nit);
           setClienteDireccion(existing.cliente_direccion);
           setClienteTelefono(existing.cliente_telefono);
-          setItems(existing.items || []);
-          setMoneda(existing.moneda);
-          setObservaciones(existing.observaciones);
+          setMoneda(existing.moneda || 'USD');
+          setObservaciones(existing.observaciones || '');
           setEstado(existing.estado);
+
+          if (existing.trm_usd) setTrmUsd(existing.trm_usd);
+          if (existing.trm_eur) setTrmEur(existing.trm_eur);
+          if (existing.monedas_mostrar && existing.monedas_mostrar.length > 0) {
+            setMonedasMostrar(existing.monedas_mostrar);
+          } else if (existing.moneda) {
+            setMonedasMostrar([existing.moneda]);
+          }
+
+          if (existing.items && existing.items.length > 0) {
+            setItems(existing.items.map((it) => ({
+              ...it,
+              moneda: it.moneda || existing.moneda || 'USD',
+            })));
+          }
           return;
         }
       }
@@ -122,6 +144,9 @@ export const QuotationCreatePage: React.FC = () => {
           if (draft.moneda) setMoneda(draft.moneda);
           if (draft.observaciones) setObservaciones(draft.observaciones);
           if (draft.estado) setEstado(draft.estado);
+          if (draft.trmUsd) setTrmUsd(draft.trmUsd);
+          if (draft.trmEur) setTrmEur(draft.trmEur);
+          if (draft.monedasMostrar) setMonedasMostrar(draft.monedasMostrar);
           setDraftRestored(true);
         } else if (parties.length > 0) {
           applyThirdParty(parties[0]);
@@ -134,7 +159,7 @@ export const QuotationCreatePage: React.FC = () => {
   // Auto-guardado de borrador en sessionStorage
   useEffect(() => {
     if (editId) return;
-    if (!clienteNombre && !observaciones) return;
+    if (!clienteNombre && !observaciones && items.length === 0) return;
     saveFormDraft('quotation_create', {
       clienteNombre,
       clienteNit,
@@ -148,24 +173,39 @@ export const QuotationCreatePage: React.FC = () => {
       moneda,
       observaciones,
       estado,
+      trmUsd,
+      trmEur,
+      monedasMostrar,
     });
-  }, [editId, clienteNombre, clienteNit, clienteDireccion, clienteTelefono, selectedThirdPartyId, vendedor, atencion, formaPago, items, moneda, observaciones, estado]);
+  }, [editId, clienteNombre, clienteNit, clienteDireccion, clienteTelefono, selectedThirdPartyId, vendedor, atencion, formaPago, items, moneda, observaciones, estado, trmUsd, trmEur, monedasMostrar]);
 
   const handleSelectThirdParty = (p: ThirdParty) => {
     applyThirdParty(p);
   };
 
+  const handleToggleMonedaMostrar = (curr: 'USD' | 'COP' | 'EUR') => {
+    if (monedasMostrar.includes(curr)) {
+      if (monedasMostrar.length === 1) return; // Mantener al menos una moneda seleccionada
+      setMonedasMostrar(monedasMostrar.filter((m) => m !== curr));
+    } else {
+      setMonedasMostrar([...monedasMostrar, curr]);
+    }
+  };
+
   const handleAddItem = () => {
+    const defaultConcept = billingConcepts[0];
+    const defaultMoneda = defaultConcept?.moneda_default || moneda || 'USD';
     const newItem: QuotationItem = {
       id: String(Date.now()),
       orden: items.length + 1,
       cantidad: 1,
-      concepto: billingConcepts[0]?.codigo || 'IN - SERVICIO LOGISTICO',
-      valor_unitario: billingConcepts[0]?.valor_sugerido || 0,
+      concepto: defaultConcept?.codigo || 'IN - SERVICIO LOGISTICO',
+      valor_unitario: defaultConcept?.valor_sugerido || 0,
       porcentaje_descuento: 0,
-      subtotal: billingConcepts[0]?.valor_sugerido || 0,
-      iva: billingConcepts[0]?.aplica_iva ? (billingConcepts[0]?.valor_sugerido || 0) * 0.19 : 0,
-      total: billingConcepts[0]?.valor_sugerido || 0,
+      subtotal: defaultConcept?.valor_sugerido || 0,
+      iva: defaultConcept?.aplica_iva ? (defaultConcept?.valor_sugerido || 0) * 0.19 : 0,
+      total: defaultConcept?.valor_sugerido || 0,
+      moneda: defaultMoneda,
     };
     newItem.total = newItem.subtotal + newItem.iva;
     setItems([...items, newItem]);
@@ -183,6 +223,9 @@ export const QuotationCreatePage: React.FC = () => {
       const match = billingConcepts.find((c) => c.codigo === val || c.nombre === val);
       if (match) {
         item.valor_unitario = match.valor_sugerido || item.valor_unitario;
+        if (match.moneda_default) {
+          item.moneda = match.moneda_default;
+        }
         const discountFactor = (100 - (Number(item.porcentaje_descuento) || 0)) / 100;
         item.subtotal = (Number(item.cantidad) || 0) * (Number(item.valor_unitario) || 0) * discountFactor;
         item.iva = match.aplica_iva ? item.subtotal * ((match.porcentaje_iva || 19) / 100) : 0;
@@ -217,9 +260,49 @@ export const QuotationCreatePage: React.FC = () => {
     setItems(updated);
   };
 
-  const subtotal = items.reduce((acc, it) => acc + (it.subtotal || 0), 0);
-  const totalIva = items.reduce((acc, it) => acc + (it.iva || 0), 0);
-  const total = subtotal + totalIva;
+  // ─────────────────────────────────────────────────────────────────────────────
+  // NORMALIZACIÓN MULTIMONEDA Y CONVERSIÓN A COP BASE
+  // ─────────────────────────────────────────────────────────────────────────────
+  const toCOP = (amount: number, fromMoneda: 'USD' | 'COP' | 'EUR'): number => {
+    if (fromMoneda === 'COP') return amount;
+    if (fromMoneda === 'USD') return amount * (trmUsd > 0 ? trmUsd : 1);
+    if (fromMoneda === 'EUR') return amount * (trmEur > 0 ? trmEur : 1);
+    return amount;
+  };
+
+  const fromCOP = (amountCop: number, toMoneda: 'USD' | 'COP' | 'EUR'): number => {
+    if (toMoneda === 'COP') return amountCop;
+    if (toMoneda === 'USD') return trmUsd > 0 ? amountCop / trmUsd : 0;
+    if (toMoneda === 'EUR') return trmEur > 0 ? amountCop / trmEur : 0;
+    return amountCop;
+  };
+
+  // Consolidado total en COP (tasa base 1:1)
+  const totalSubtotalCOP = items.reduce((acc, it) => acc + toCOP(it.subtotal || 0, it.moneda || 'USD'), 0);
+  const totalIvaCOP = items.reduce((acc, it) => acc + toCOP(it.iva || 0, it.moneda || 'USD'), 0);
+
+  const activeMonedas = monedasMostrar.length > 0 ? monedasMostrar : [moneda || 'USD'];
+
+  // Totales normalizados con 2 decimales para cada moneda seleccionada
+  const totalesNormalizados: Record<string, { subtotal: number; total_iva: number; total: number; trm?: number }> = {};
+  for (const curr of activeMonedas) {
+    const s = fromCOP(totalSubtotalCOP, curr);
+    const i = fromCOP(totalIvaCOP, curr);
+    totalesNormalizados[curr] = {
+      subtotal: Math.round(s * 100) / 100,
+      total_iva: Math.round(i * 100) / 100,
+      total: Math.round((s + i) * 100) / 100,
+      trm: curr === 'USD' ? trmUsd : curr === 'EUR' ? trmEur : 1,
+    };
+  }
+
+  // Moneda principal para compatibilidad con campos legados
+  const primaryMoneda = activeMonedas[0] || 'USD';
+  const primaryTotals = totalesNormalizados[primaryMoneda] || {
+    subtotal: 0,
+    total_iva: 0,
+    total: 0,
+  };
 
   const currentQuotationObject: Quotation = {
     id: quotationId,
@@ -236,17 +319,31 @@ export const QuotationCreatePage: React.FC = () => {
     cliente_telefono: clienteTelefono,
     observaciones,
     condiciones: [],
-    subtotal,
-    total_iva: totalIva,
-    total,
-    moneda,
+    subtotal: primaryTotals.subtotal,
+    total_iva: primaryTotals.total_iva,
+    total: primaryTotals.total,
+    moneda: primaryMoneda,
     estado,
     items,
+    trm_usd: trmUsd,
+    trm_eur: trmEur,
+    monedas_mostrar: activeMonedas,
+    totales_normalizados: totalesNormalizados,
   };
 
   const handleSave = async () => {
     if (!clienteNombre.trim() || items.length === 0) {
       alert('Debes indicar el cliente y al menos un concepto en la cotización.');
+      return;
+    }
+
+    if (monedasMostrar.includes('USD') && (!trmUsd || trmUsd <= 0)) {
+      alert('Por favor ingresa una TRM USD válida mayor a 0 para realizar la normalización.');
+      return;
+    }
+
+    if (monedasMostrar.includes('EUR') && (!trmEur || trmEur <= 0)) {
+      alert('Por favor ingresa una TRM EUR válida mayor a 0 para realizar la normalización.');
       return;
     }
 
@@ -294,7 +391,7 @@ export const QuotationCreatePage: React.FC = () => {
               {isEditing ? `Editar Cotización ${consecutivo}` : `Nueva Cotización ${consecutivo}`}
             </h1>
             <p className="erp-page-subtitle">
-              Propuesta comercial de transporte con exportación formal en PDF.
+              Propuesta comercial de transporte multimoneda con normalización por TRM y exportación PDF.
             </p>
           </div>
         </div>
@@ -340,7 +437,7 @@ export const QuotationCreatePage: React.FC = () => {
         </div>
       )}
 
-      {/* FORMULARIO ENCABEZADO */}
+      {/* 1. FORMULARIO ENCABEZADO */}
       <div className="erp-card space-y-4">
         <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
           <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
@@ -422,7 +519,7 @@ export const QuotationCreatePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="erp-label">Asesor Comercial (Vendedor)</label>
             <input
@@ -441,18 +538,6 @@ export const QuotationCreatePage: React.FC = () => {
               onChange={(e) => setAtencion(e.target.value)}
               className="erp-input uppercase"
             />
-          </div>
-          <div>
-            <label className="erp-label">Moneda de Cotización</label>
-            <select
-              value={moneda}
-              onChange={(e) => setMoneda(e.target.value as any)}
-              className="erp-select font-mono font-bold"
-            >
-              <option value="USD">USD — Dólares Americanos</option>
-              <option value="COP">COP — Pesos Colombianos</option>
-              <option value="EUR">EUR — Euros</option>
-            </select>
           </div>
         </div>
 
@@ -487,12 +572,17 @@ export const QuotationCreatePage: React.FC = () => {
         </div>
       </div>
 
-      {/* TABLA DE CONCEPTOS COTIZADOS */}
+      {/* 2. TABLA DE CONCEPTOS COTIZADOS (CONCURRENCIA / MULTIMONEDA POR CONCEPTO) */}
       <div className="erp-card space-y-4">
         <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
-          <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
-            2. Conceptos Tarifarios & Servicios Cotizados
-          </h2>
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
+              2. Conceptos Tarifarios & Servicios Cotizados
+            </h2>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Cada concepto puede cotizarse de forma independiente en COP, USD o EUR.
+            </p>
+          </div>
           <button onClick={handleAddItem} className="erp-btn-primary py-1 px-3 text-[11px]">
             <Plus className="w-3.5 h-3.5" />
             <span>Agregar Concepto</span>
@@ -505,17 +595,19 @@ export const QuotationCreatePage: React.FC = () => {
               <tr>
                 <th className="erp-th text-center w-12">Cant</th>
                 <th className="erp-th text-left">Concepto / Servicio</th>
+                <th className="erp-th text-center w-24">Moneda</th>
                 <th className="erp-th text-right w-28">Vr. Unitario</th>
                 <th className="erp-th text-center w-20">% Dto</th>
-                <th className="erp-th text-right w-28">Subtotal</th>
-                <th className="erp-th text-right w-24">IVA</th>
-                <th className="erp-th text-right w-28">Total</th>
+                <th className="erp-th text-right w-32">Subtotal</th>
+                <th className="erp-th text-right w-28">IVA</th>
+                <th className="erp-th text-right w-32">Total</th>
                 <th className="erp-th text-center w-10"></th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, index) => (
                 <tr key={item.id} className="erp-tr">
+                  {/* CANTIDAD */}
                   <td className="erp-td text-center">
                     <input
                       type="number"
@@ -525,6 +617,8 @@ export const QuotationCreatePage: React.FC = () => {
                       className="erp-input p-1 text-center font-mono w-14"
                     />
                   </td>
+
+                  {/* CONCEPTO */}
                   <td className="erp-td">
                     <input
                       type="text"
@@ -542,16 +636,33 @@ export const QuotationCreatePage: React.FC = () => {
                       ))}
                     </datalist>
                   </td>
+
+                  {/* MONEDA INDEPENDIENTE POR CONCEPTO */}
+                  <td className="erp-td text-center">
+                    <select
+                      value={item.moneda || 'USD'}
+                      onChange={(e) => handleItemChange(index, 'moneda', e.target.value)}
+                      className="erp-select p-1 text-center font-mono font-bold text-xs"
+                    >
+                      <option value="USD">USD</option>
+                      <option value="COP">COP</option>
+                      <option value="EUR">EUR</option>
+                    </select>
+                  </td>
+
+                  {/* VALOR UNITARIO */}
                   <td className="erp-td text-right">
                     <input
                       type="number"
                       min={0}
-                      step="any"
+                      step="0.01"
                       value={item.valor_unitario}
                       onChange={(e) => handleItemChange(index, 'valor_unitario', parseFloat(e.target.value) || 0)}
                       className="erp-input p-1 text-right font-mono text-xs"
                     />
                   </td>
+
+                  {/* DESCUENTO */}
                   <td className="erp-td text-center">
                     <input
                       type="number"
@@ -562,23 +673,33 @@ export const QuotationCreatePage: React.FC = () => {
                       className="erp-input p-1 text-center font-mono w-16 text-xs"
                     />
                   </td>
+
+                  {/* SUBTOTAL (2 DECIMALES) */}
                   <td className="erp-td text-right font-mono font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                    {item.subtotal.toLocaleString('es-CO')}
+                    <span className="text-[10px] text-muted mr-1">{item.moneda || 'USD'}</span>
+                    {item.subtotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
+
+                  {/* IVA (2 DECIMALES) */}
                   <td className="erp-td text-right">
                     <input
                       type="number"
                       min={0}
-                      step="any"
+                      step="0.01"
                       value={item.iva}
                       onChange={(e) => handleItemChange(index, 'iva', parseFloat(e.target.value) || 0)}
                       className="erp-input p-1 text-right font-mono text-xs"
                       style={{ color: 'var(--text-muted)' }}
                     />
                   </td>
+
+                  {/* TOTAL (2 DECIMALES) */}
                   <td className="erp-td text-right font-mono font-bold" style={{ color: 'var(--text-primary)' }}>
-                    {item.total.toLocaleString('es-CO')}
+                    <span className="text-[10px] text-muted mr-1">{item.moneda || 'USD'}</span>
+                    {item.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
+
+                  {/* ELIMINAR */}
                   <td className="erp-td text-center">
                     <button
                       onClick={() => handleRemoveItem(index)}
@@ -593,30 +714,160 @@ export const QuotationCreatePage: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* TOTALIZADORES FINANCIEROS */}
-        <div className="flex justify-end pt-3" style={{ borderTop: '1px solid var(--border-default)' }}>
-          <div className="erp-card-subtle w-full sm:w-80 space-y-2 font-mono text-xs">
-            <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
-              <span>Subtotal ({moneda}):</span>
-              <span>{subtotal.toLocaleString('es-CO')}</span>
+      {/* 3. NORMALIZACIÓN MULTIMONEDA & LIQUIDACIÓN DE TOTALES (CHECKBOXES + TRM) */}
+      <div className="erp-card space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--brand-orange-text)' }}>
+              <Coins className="w-4 h-4" /> 3. Normalización Multimoneda & Tasa de Cambio (TRM)
+            </h2>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Selecciona mediante las casillas en qué monedas deseas normalizar los valores totales (en 1, en 2 o en las 3).
+            </p>
+          </div>
+
+          {/* CHECKBOXES DE MONEDAS A MOSTRAR */}
+          <div className="flex items-center gap-2">
+            {(['COP', 'USD', 'EUR'] as const).map((curr) => {
+              const isChecked = monedasMostrar.includes(curr);
+              return (
+                <label
+                  key={curr}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                    isChecked
+                      ? 'border-[#F35815] bg-[#F35815]/10 text-[var(--brand-orange-text)] shadow-sm'
+                      : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-strong)]'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => handleToggleMonedaMostrar(curr)}
+                    className="rounded accent-[#F35815] cursor-pointer"
+                  />
+                  <span>{curr}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* CAMPOS DE INGRESO DE TRM (CONDICIONALES SEGÚN MONEDAS SELECCIONADAS O USADAS) */}
+        {(monedasMostrar.includes('USD') || monedasMostrar.includes('EUR') || items.some(i => i.moneda === 'USD' || i.moneda === 'EUR')) && (
+          <div className="erp-card-subtle p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--brand-orange-text)' }}>
+                <TrendingUp className="w-4 h-4" /> Tasas de Cambio de Referencia (TRM en Pesos - COP)
+              </span>
+              <span className="text-[10px] text-muted font-mono hidden sm:inline">Tasa COP = 1.00 (Base)</span>
             </div>
-            <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
-              <span>Total IVA ({moneda}):</span>
-              <span>{totalIva.toLocaleString('es-CO')}</span>
-            </div>
-            <div className="flex justify-between font-bold text-sm pt-2" style={{ borderTop: '1px solid var(--border-default)', color: 'var(--brand-orange)' }}>
-              <span>TOTAL COTIZACIÓN:</span>
-              <span>{moneda} {total.toLocaleString('es-CO')}</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+              {/* TRM USD */}
+              {(monedasMostrar.includes('USD') || items.some(i => i.moneda === 'USD')) && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="erp-label mb-0">TRM USD (Tasa de cambio Dólar a Pesos) *</label>
+                    <span className="text-[10px] font-mono text-muted">1 USD = ${trmUsd.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} COP</span>
+                  </div>
+                  <div className="relative">
+                    <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={trmUsd}
+                      onChange={(e) => setTrmUsd(parseFloat(e.target.value) || 0)}
+                      className="erp-input pl-9 font-mono font-bold text-xs"
+                      placeholder="Ej: 4150.00"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TRM EUR */}
+              {(monedasMostrar.includes('EUR') || items.some(i => i.moneda === 'EUR')) && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="erp-label mb-0">TRM EUR (Tasa de cambio Euro a Pesos) *</label>
+                    <span className="text-[10px] font-mono text-muted">1 EUR = ${trmEur.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} COP</span>
+                  </div>
+                  <div className="relative">
+                    <DollarSign className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted" />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={trmEur}
+                      onChange={(e) => setTrmEur(parseFloat(e.target.value) || 0)}
+                      className="erp-input pl-9 font-mono font-bold text-xs"
+                      placeholder="Ej: 4500.00"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+        )}
+
+        {/* TARJETAS DE TOTALIZACIÓN NORMALIZADA (TODOS CON DOS DECIMALES) */}
+        <div className={`grid grid-cols-1 ${monedasMostrar.length === 1 ? 'sm:grid-cols-1' : monedasMostrar.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-3 pt-2`}>
+          {monedasMostrar.map((curr) => {
+            const tot = totalesNormalizados[curr] || { subtotal: 0, total_iva: 0, total: 0 };
+            return (
+              <div
+                key={curr}
+                className="p-4 rounded-xl border space-y-2.5 font-mono text-xs relative overflow-hidden transition-all shadow-sm"
+                style={{
+                  backgroundColor: 'var(--surface-raised)',
+                  borderColor: curr === 'USD' ? 'rgba(243,88,21,0.5)' : curr === 'COP' ? 'rgba(16,185,129,0.5)' : 'rgba(59,130,246,0.5)',
+                }}
+              >
+                <div className="flex items-center justify-between pb-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-bold text-xs uppercase flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                    Totalización en {curr}
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      curr === 'USD'
+                        ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+                        : curr === 'COP'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
+                    }`}
+                  >
+                    {curr === 'COP' ? 'Tasa 1:1' : `TRM: $${(curr === 'USD' ? trmUsd : trmEur).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  </span>
+                </div>
+
+                <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
+                  <span>Subtotal:</span>
+                  <span className="font-semibold">{curr} {tot.subtotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between" style={{ color: 'var(--text-muted)' }}>
+                  <span>Total IVA:</span>
+                  <span className="font-semibold">{curr} {tot.total_iva.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-between font-bold text-sm pt-2 border-t" style={{ borderColor: 'var(--border-subtle)', color: 'var(--brand-orange)' }}>
+                  <span>TOTAL COTIZACIÓN:</span>
+                  <span>{curr} {tot.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* OBSERVACIONES DEL EMBARQUE */}
+      {/* 4. OBSERVACIONES DEL EMBARQUE */}
       <div className="erp-card space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand-orange-text)' }}>
-          3. Observaciones Operativas de la Cotización
+          4. Observaciones Operativas de la Cotización
         </h2>
         <textarea
           rows={3}

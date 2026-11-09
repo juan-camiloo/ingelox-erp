@@ -65,6 +65,14 @@ export interface QuotationItem {
   subtotal: number;
   iva: number;
   total: number;
+  moneda?: 'USD' | 'COP' | 'EUR'; // Moneda independiente por concepto
+}
+
+export interface NormalizedCurrencyTotal {
+  subtotal: number;
+  total_iva: number;
+  total: number;
+  trm?: number;
 }
 
 export interface Quotation {
@@ -91,6 +99,11 @@ export interface Quotation {
   created_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  // Campos de normalización multimoneda y TRM
+  trm_usd?: number | null; // TRM USD en pesos (COP)
+  trm_eur?: number | null; // TRM EUR en pesos (COP)
+  monedas_mostrar?: ('USD' | 'COP' | 'EUR')[]; // Monedas seleccionadas para normalizar y mostrar
+  totales_normalizados?: Record<string, NormalizedCurrencyTotal>; // Totales normalizados con 2 decimales
 }
 
 export interface ShippingInstructionConcept {

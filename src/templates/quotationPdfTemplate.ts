@@ -10,22 +10,68 @@ function esc(value: string | number | null | undefined): string {
 }
 
 function formatNum(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '0';
-  return value.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  if (value === null || value === undefined || isNaN(value)) return '0.00';
+  return value.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function buildQuotationHtml(quotation: Quotation): string {
-  const itemsRows = quotation.items.map((it) => `
+  const itemsRows = quotation.items.map((it) => {
+    const itemCurrency = it.moneda || quotation.moneda || 'USD';
+    return `
     <tr>
       <td style="text-align:center; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt;">${it.cantidad}</td>
-      <td style="text-align:left; padding: 4px 8px; border: 1px solid #000000; font-size: 8.5pt; font-weight: bold;">${esc(it.concepto)}</td>
+      <td style="text-align:left; padding: 4px 8px; border: 1px solid #000000; font-size: 8.5pt; font-weight: bold;">
+        <span style="display:inline-block; font-size: 7pt; font-weight: bold; background: #E2E8F0; padding: 1px 4px; border-radius: 3px; margin-right: 5px; border: 1px solid #CBD5E1;">${esc(itemCurrency)}</span>
+        ${esc(it.concepto)}
+      </td>
       <td style="text-align:right; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt;">${formatNum(it.valor_unitario)}</td>
-      <td style="text-align:center; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt;">${it.porcentaje_descuento || 0}</td>
+      <td style="text-align:center; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt;">${it.porcentaje_descuento || 0}%</td>
       <td style="text-align:right; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt;">${formatNum(it.subtotal)}</td>
       <td style="text-align:right; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt;">${formatNum(it.iva)}</td>
       <td style="text-align:right; padding: 4px 6px; border: 1px solid #000000; font-size: 8.5pt; font-weight: bold;">${formatNum(it.total)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
+
+  const trmBadges: string[] = [];
+  if (quotation.trm_usd && quotation.trm_usd > 0) {
+    trmBadges.push(`TRM USD: <strong>$ ${formatNum(quotation.trm_usd)} COP</strong>`);
+  }
+  if (quotation.trm_eur && quotation.trm_eur > 0) {
+    trmBadges.push(`TRM EUR: <strong>$ ${formatNum(quotation.trm_eur)} COP</strong>`);
+  }
+  const trmBannerHtml = trmBadges.length > 0 ? `
+    <div style="margin-top: 8px; margin-bottom: 10px; padding: 6px 10px; background: #F8FAFC; border: 1px solid #CBD5E1; font-size: 8pt; border-radius: 4px;">
+      <span style="font-weight: bold; text-transform: uppercase;">Tasas de Cambio Oficiales (TRM base COP = 1):</span> &nbsp;&nbsp; ${trmBadges.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ')}
+    </div>
+  ` : '';
+
+  const normalizedEntries = quotation.totales_normalizados
+    ? Object.entries(quotation.totales_normalizados)
+    : [];
+
+  let totalRowsHtml = '';
+  if (normalizedEntries.length > 0) {
+    totalRowsHtml = normalizedEntries.map(([currency, tn]) => `
+      <tr class="total-row">
+        <td colspan="4" style="text-align: right; padding-right: 10px; font-weight: bold; font-size: 8pt;">
+          TOTAL NORMALIZADO (${esc(currency)})${tn.trm && currency !== 'COP' ? ` &nbsp;<span style="font-size: 7.5pt; font-weight: normal; color: #555;">[TRM: $${formatNum(tn.trm)}]</span>` : ''}
+        </td>
+        <td style="text-align: right; font-size: 8.5pt;">${formatNum(tn.subtotal)}</td>
+        <td style="text-align: right; font-size: 8.5pt;">${formatNum(tn.total_iva)}</td>
+        <td style="text-align: right; font-weight: bold; background: #F4F4F4; font-size: 8.5pt;">${formatNum(tn.total)} ${esc(currency)}</td>
+      </tr>
+    `).join('');
+  } else {
+    totalRowsHtml = `
+      <tr class="total-row">
+        <td colspan="4" style="text-align: right; padding-right: 10px; font-weight: bold;">TOTAL (${esc(quotation.moneda || 'USD')})</td>
+        <td style="text-align: right;">${formatNum(quotation.subtotal)}</td>
+        <td style="text-align: right;">${formatNum(quotation.total_iva)}</td>
+        <td style="text-align: right; font-weight: bold; background: #F4F4F4;">${formatNum(quotation.total)} ${esc(quotation.moneda || 'USD')}</td>
+      </tr>
+    `;
+  }
 
   const now = new Date();
   const printTimeStr = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -219,6 +265,8 @@ export function buildQuotationHtml(quotation: Quotation): string {
     Atendiendo su amable solicitud, nos permitimos enviar propuesta comercial de acuerdo a sus necesidades y datos informados. Esperamos atentos sus comentarios e instrucciones. ¡Es un gusto poder servirle!
   </div>
 
+  ${trmBannerHtml}
+
   <!-- TABLA DE CONCEPTOS -->
   <table class="data-grid">
     <thead>
@@ -234,12 +282,7 @@ export function buildQuotationHtml(quotation: Quotation): string {
     </thead>
     <tbody>
       ${itemsRows}
-      <tr class="total-row">
-        <td colspan="4" style="text-align: right; padding-right: 10px; font-weight: bold;">TOTAL (${esc(quotation.moneda)})</td>
-        <td style="text-align: right;">${formatNum(quotation.subtotal)}</td>
-        <td style="text-align: right;">${formatNum(quotation.total_iva)}</td>
-        <td style="text-align: right; font-weight: bold; background: #F4F4F4;">${formatNum(quotation.total)}</td>
-      </tr>
+      ${totalRowsHtml}
     </tbody>
   </table>
 

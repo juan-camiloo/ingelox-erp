@@ -161,13 +161,29 @@ export const QuotationsPage: React.FC = () => {
                     {quote.vendedor}
                   </td>
                   <td className="erp-td text-right font-mono whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                    {quote.moneda} {quote.subtotal.toLocaleString('es-CO')}
+                    {quote.moneda} {quote.subtotal.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="erp-td text-right font-mono whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                    {quote.moneda} {quote.total_iva.toLocaleString('es-CO')}
+                    {quote.moneda} {quote.total_iva.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="erp-td text-right font-mono font-bold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
-                    {quote.moneda} {quote.total.toLocaleString('es-CO')}
+                    <div>{quote.moneda} {quote.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    {quote.totales_normalizados && Object.keys(quote.totales_normalizados).length > 1 && (
+                      <div className="flex flex-col items-end gap-0.5 mt-1">
+                        {Object.entries(quote.totales_normalizados)
+                          .filter(([curr]) => curr !== quote.moneda)
+                          .map(([curr, t]) => (
+                            <span
+                              key={curr}
+                              className="text-[10px] font-normal px-1.5 py-0.5 rounded"
+                              style={{ background: 'var(--surface-sunken)', color: 'var(--text-muted)' }}
+                              title={`TRM: ${t.trm ? t.trm.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '1.00'}`}
+                            >
+                              {curr} {t.total.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ))}
+                      </div>
+                    )}
                   </td>
                   <td className="erp-td whitespace-nowrap">
                     <select
